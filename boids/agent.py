@@ -92,7 +92,7 @@ class Boid:
         """
         self.velocity += acceleration
 
-        # Kufizo shpejtësinë maksimale (agjenti s'mund të lëvizë më shpejt se max_speed)
+        # Kufizojmë shpejtësinë maksimale (agjenti s'mund të lëvizë më shpejt se max_speed)
         speed = np.linalg.norm(self.velocity)
         if speed > self.max_speed:
             self.velocity = (self.velocity / speed) * self.max_speed

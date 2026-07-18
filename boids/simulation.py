@@ -16,13 +16,13 @@ class Simulation:
         self.width = width
         self.height = height
 
-        # Peshat e secilit rregull - këto janë parametra që mund t'i ndryshosh
-        # për të parë si ndryshon sjellja e turmës (eksperimentim i mëvonshëm)
+        # Peshat e secilit rregull - këto janë parametra që mund t'i ndryshojmë
+        # për të parë si ndryshon sjellja e turmës
         self.separation_weight = separation_weight
         self.alignment_weight = alignment_weight
         self.cohesion_weight = cohesion_weight
 
-        # Krijo N boid-e me pozicione dhe shpejtësi fillestare random
+        # Krijojmë N boid-e me pozicione dhe shpejtësi fillestare random
         self.boids = []
         for _ in range(num_boids):
             position = [np.random.uniform(0, width), np.random.uniform(0, height)]
@@ -33,7 +33,7 @@ class Simulation:
         """
         Gjen të gjithë boid-et brenda një rrezeje të caktuar nga boid-i i dhënë.
         Kjo simulon "shikimin"/perceptimin lokal të një personi në turmë -
-        njerëzit s'e shohin/reagojnë ndaj gjithë turmës, vetëm ndaj atyre afër.
+        njerëzit nuk reagojnë ndaj gjithë turmës, vetëm ndaj atyre që janë më afër.
         """
         neighbors = []
         for other in self.boids:
@@ -79,10 +79,10 @@ class Simulation:
             # Forca shtesë për me mos dalë jashtë kufijve
             bounds_force = self.keep_within_bounds(boid)
 
-            # Kombino të gjitha forcat në një "acceleration" total
+            # Kombinon të gjitha forcat në një "acceleration" total
             acceleration = separation_force + alignment_force + cohesion_force + bounds_force
 
-            # Kufizo forcën totale (realizëm - njeriu s'ndryshon drejtim papritmas/pafundësisht)
+            # Kufizon forcën totale (realizëm - njeriu s'ndryshon drejtim papritmas/pafundësisht)
             force_magnitude = np.linalg.norm(acceleration)
             if force_magnitude > boid.max_force:
                 acceleration = (acceleration / force_magnitude) * boid.max_force
