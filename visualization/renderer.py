@@ -17,6 +17,7 @@ FPS = 60
 # Ngjyrat (RGB)
 BACKGROUND_COLOR = (20, 20, 30)
 BOID_COLOR = (100, 200, 255)
+EXIT_COLOR = (80, 220, 100)
 
 
 def draw_boid(screen, boid, size=6):
@@ -42,6 +43,18 @@ def draw_boid(screen, boid, size=6):
 
     pygame.draw.polygon(screen, BOID_COLOR, rotated_points)
 
+def draw_exits(screen, environment, exit_width=60, thickness=6):
+    """
+    Vizaton daljet si segmente jeshile mbi murin përkatës,
+    që të shihet qartë ku ndodhet dera në hapësirë.
+    """
+    for exit_pos in environment.exits:
+        x, y = exit_pos
+        # Meqë dera jonë është në murin e sipërm (y=0), e vizatojmë
+        # si një vijë horizontale të trashë mbi atë pozicion
+        start = (x - exit_width / 2, y)
+        end = (x + exit_width / 2, y)
+        pygame.draw.line(screen, EXIT_COLOR, start, end, thickness)
 
 def main():
     pygame.init()
@@ -49,7 +62,8 @@ def main():
     pygame.display.set_caption("Boids Crowd Simulation")
     clock = pygame.time.Clock()
 
-    simulation = Simulation(NUM_BOIDS, WIDTH, HEIGHT)
+    exits = [(WIDTH / 2, 0)]  # një derë e vetme, në mes të murit të sipërm
+    simulation = Simulation(NUM_BOIDS, WIDTH, HEIGHT, exits)
 
     running = True
     while running:
@@ -63,6 +77,7 @@ def main():
 
         # Vizatojmë gjithçka nga fillimi (pastrojmë ekranin dhe rivizatojmë)
         screen.fill(BACKGROUND_COLOR)
+        draw_exits(screen, simulation.environment)
         for boid in simulation.boids:
             draw_boid(screen, boid)
 
