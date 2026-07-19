@@ -2,7 +2,7 @@ import pygame
 import numpy as np
 import sys
 import os
-
+from analysis.metrics import print_summary, plot_evacuation_histogram
 # Kjo linjë siguron që Python e gjen follderin "boids" edhe kur e ekzekutojmë
 # këtë file direkt nga brenda follderit "visualization"
 sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), '..')))
@@ -62,20 +62,21 @@ def main():
     pygame.display.set_caption("Boids Crowd Simulation")
     clock = pygame.time.Clock()
 
-    exits = [(WIDTH / 2, 0)]  # një derë e vetme, në mes të murit të sipërm
+    exits = [(WIDTH / 2, 0)]
     simulation = Simulation(NUM_BOIDS, WIDTH, HEIGHT, exits)
 
     running = True
     while running:
-        # Kontrollojmë nëse përdoruesi ka mbyllur dritaren
         for event in pygame.event.get():
             if event.type == pygame.QUIT:
                 running = False
 
-        # Përditësojmë simulimin (një hap kohor)
-        simulation.step()
+        if not simulation.is_finished():
+            simulation.step()
+        else:
+            # Të gjithë boid-et kanë evakuuar - ndalojmë automatikisht
+            running = False
 
-        # Vizatojmë gjithçka nga fillimi (pastrojmë ekranin dhe rivizatojmë)
         screen.fill(BACKGROUND_COLOR)
         draw_exits(screen, simulation.environment)
         for boid in simulation.boids:
@@ -85,6 +86,11 @@ def main():
         clock.tick(FPS)
 
     pygame.quit()
+
+    # Shfaq statistikat dhe grafikun pasi të mbyllet dritarja e pygame
+    print_summary(simulation.evacuation_times)
+    plot_evacuation_histogram(simulation.evacuation_times)
+
     sys.exit()
 
 
