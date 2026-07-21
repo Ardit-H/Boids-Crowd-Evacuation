@@ -9,13 +9,13 @@ from boids.simulation import Simulation
 from analysis.metrics import summarize_evacuation, plot_config_comparison
 
 
-def run_headless_simulation(num_boids, width, height, exits, max_steps=2000):
+def run_headless_simulation(num_boids, width, height, exits, obstacles=None, max_steps=2000):
     """
     Ekzekuton një simulim TË VETËM pa vizualizim (headless) - shumë
     më shpejt se me pygame, sepse s'humb kohë duke vizatuar.
     Kthen listën e kohëve të evakuimit të të gjithë agjentëve.
     """
-    simulation = Simulation(num_boids, width, height, exits)
+    simulation = Simulation(num_boids, width, height, exits, obstacles)
 
     steps = 0
     while not simulation.is_finished() and steps < max_steps:
@@ -25,7 +25,7 @@ def run_headless_simulation(num_boids, width, height, exits, max_steps=2000):
     return simulation.evacuation_times
 
 
-def run_batch(config_name, num_boids, width, height, exits,
+def run_batch(config_name, num_boids, width, height, exits, obstacles=None,
               num_trials=30, max_steps=2000):
     """
     Ekzekuton të njëjtin konfigurim 'num_trials' herë (me pozicione
@@ -37,7 +37,7 @@ def run_batch(config_name, num_boids, width, height, exits,
     results = []
     for trial in range(num_trials):
         evacuation_times = run_headless_simulation(
-            num_boids, width, height, exits, max_steps)
+            num_boids, width, height, exits, obstacles, max_steps)
         stats = summarize_evacuation(evacuation_times)
         stats["config"] = config_name
         stats["trial"] = trial
@@ -56,15 +56,16 @@ def main():
 
     # Konfigurimet që do t'i krahasojmë
     configs = {
-        "1 derë (mesi)": [(WIDTH / 2, 0)],
-        "2 dyer": [(WIDTH / 4, 0), (3 * WIDTH / 4, 0)],
-        "3 dyer": [(WIDTH / 5, 0), (WIDTH / 2, 0), (4 * WIDTH / 5, 0)],
+        "1 derë - pa pengesë": ([(WIDTH / 2, 0)], []),
+        "1 derë - me pengesë": ([(WIDTH / 2, 0)], [(WIDTH / 2 - 40, 150, 80, 40)]),
+        "2 dyer": ([(WIDTH / 4, 0), (3 * WIDTH / 4, 0)], []),
+        "3 dyer": ([(WIDTH / 5, 0), (WIDTH / 2, 0), (4 * WIDTH / 5, 0)], []),
     }
 
     all_results = []
-    for config_name, exits in configs.items():
+    for config_name, (exits, obstacles) in configs.items():
         results = run_batch(config_name, NUM_BOIDS, WIDTH, HEIGHT, exits,
-                             num_trials=NUM_TRIALS)
+                            obstacles=obstacles, num_trials=NUM_TRIALS)
         all_results.extend(results)
 
     # Konvertojmë në DataFrame (pandas) - lehtëson analizën dhe eksportimin
