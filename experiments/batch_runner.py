@@ -6,7 +6,7 @@ import os
 sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), '..')))
 
 from boids.simulation import Simulation
-from analysis.metrics import summarize_evacuation
+from analysis.metrics import summarize_evacuation, plot_config_comparison
 
 
 def run_headless_simulation(num_boids, width, height, exits, max_steps=2000):
@@ -88,6 +88,8 @@ def main():
     print(summary.to_string(index=False))
     print(f"\nRezultatet u ruajtën në: results/batch_results_raw.csv")
     print(f"Përmbledhja u ruajt në: results/batch_results_summary.csv")
+
+    plot_config_comparison()
 
 
 if __name__ == "__main__":
