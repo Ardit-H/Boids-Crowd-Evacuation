@@ -62,7 +62,7 @@ def main():
     pygame.display.set_caption("Boids Crowd Simulation")
     clock = pygame.time.Clock()
 
-    exits = [(WIDTH / 2, 0)]
+    exits = [(WIDTH / 4, 0), (3 * WIDTH / 4, 0)]
     simulation = Simulation(NUM_BOIDS, WIDTH, HEIGHT, exits)
 
     running = True
