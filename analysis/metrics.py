@@ -1,4 +1,5 @@
 import numpy as np
+import pandas as pd
 import matplotlib.pyplot as plt
 
 
@@ -53,6 +54,31 @@ def plot_evacuation_histogram(evacuation_times, title="Shpërndarja e Kohës së
     plt.hist(evacuation_times, bins=20, color="#4a90d9", edgecolor="black")
     plt.xlabel("Koha e evakuimit (frames)")
     plt.ylabel("Numri i agjentëve")
+    plt.title(title)
+    plt.tight_layout()
+    plt.show()
+
+def plot_config_comparison(summary_csv_path="results/batch_results_summary.csv",
+                            title="Krahasimi i Kohës së Evakuimit sipas Konfigurimit"):
+    """
+    Lexon CSV-në e përmbledhjes (nga batch_runner) dhe vizaton bar chart
+    krahasues mes konfigurimeve, me error bars që tregojnë variabilitetin
+    (std_of_means) mes trials të ndryshme.
+    """
+    df = pd.read_csv(summary_csv_path)
+
+    plt.figure(figsize=(9, 6))
+    bars = plt.bar(df["config"], df["mean_of_means"],
+                    yerr=df["std_of_means"], capsize=8,
+                    color="#4a90d9", edgecolor="black")
+
+    # Shtojmë vlerën numerike mbi çdo shtyllë, për lexueshmëri më të mirë
+    for bar, value in zip(bars, df["mean_of_means"]):
+        plt.text(bar.get_x() + bar.get_width() / 2, bar.get_height() + 5,
+                  f"{value:.1f}", ha="center", va="bottom", fontsize=10)
+
+    plt.xlabel("Konfigurimi")
+    plt.ylabel("Koha mesatare e evakuimit (frames)")
     plt.title(title)
     plt.tight_layout()
     plt.show()
