@@ -18,7 +18,7 @@ FPS = 60
 BACKGROUND_COLOR = (20, 20, 30)
 BOID_COLOR = (100, 200, 255)
 EXIT_COLOR = (80, 220, 100)
-
+OBSTACLE_COLOR = (200, 80, 80)
 
 def draw_boid(screen, boid, size=6):
     """
@@ -56,14 +56,27 @@ def draw_exits(screen, environment, exit_width=60, thickness=6):
         end = (x + exit_width / 2, y)
         pygame.draw.line(screen, EXIT_COLOR, start, end, thickness)
 
+def draw_obstacles(screen, environment):
+    """
+    Vizaton pengesat si drejtkëndësha të kuq, që të shihen qartë
+    ku ndodhen brenda hapësirës (kolona, mure të brendshme).
+    """
+    for (ox, oy, ow, oh) in environment.obstacles:
+        pygame.draw.rect(screen, OBSTACLE_COLOR, (ox, oy, ow, oh))
+
 def main():
     pygame.init()
     screen = pygame.display.set_mode((WIDTH, HEIGHT))
     pygame.display.set_caption("Boids Crowd Simulation")
     clock = pygame.time.Clock()
 
-    exits = [(WIDTH / 4, 0), (3 * WIDTH / 4, 0)]
-    simulation = Simulation(NUM_BOIDS, WIDTH, HEIGHT, exits)
+    exits = [(WIDTH / 2, 0)]
+
+    # Një pengesë (kolonë) e vendosur para derës - do të shohim si
+    # ndikon në rrjedhën e evakuimit (pozitivisht apo negativisht)
+    obstacles = [(WIDTH / 2 - 40, 150, 80, 40)]
+
+    simulation = Simulation(NUM_BOIDS, WIDTH, HEIGHT, exits, obstacles)
 
     running = True
     while running:
@@ -79,6 +92,7 @@ def main():
 
         screen.fill(BACKGROUND_COLOR)
         draw_exits(screen, simulation.environment)
+        draw_obstacles(screen, simulation.environment)
         for boid in simulation.boids:
             draw_boid(screen, boid)
 
