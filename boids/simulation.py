@@ -13,7 +13,7 @@ class Simulation:
                  alignment_weight=1.0,
                  cohesion_weight=1.0,
                  exit_weight=1.2,
-                 obstacle_weight=2.0):
+                 obstacle_weight=3.5):
         self.width = width
         self.height = height
 
@@ -84,14 +84,20 @@ class Simulation:
 
             bounds_force = self.keep_within_bounds(boid)
 
+            # Pak "zhurmë"/paparashikueshmëri e vogël - thyen simetritë e
+            # përkryera që mund të shkaktojnë bllokim te pengesat, dhe njëkohësisht
+            # e bën lëvizjen më realiste (njerëzit s'lëvizin në linja perfekte)
+            noise = np.random.uniform(-0.05, 0.05, size=2)
+
             acceleration = (separation_force + alignment_force + cohesion_force +
-                             exit_force + obstacle_force + bounds_force)
+                            exit_force + obstacle_force + bounds_force + noise)
 
             force_magnitude = np.linalg.norm(acceleration)
             if force_magnitude > boid.max_force:
                 acceleration = (acceleration / force_magnitude) * boid.max_force
 
             boid.update(acceleration)
+            self.environment.resolve_collisions(boid)
 
             # Kontrollojmë nëse ka arritur te dalja
             if self.environment.has_reached_exit(boid.position):
