@@ -58,6 +58,13 @@ def main():
     configs = {
         "1 derë - pa pengesë": ([(WIDTH / 2, 0)], []),
         "1 derë - me pengesë": ([(WIDTH / 2, 0)], [(WIDTH / 2 - 40, 150, 80, 40)]),
+        "1 derë - pengesë kanalizuese": (
+            [(WIDTH / 2, 0)],
+            [
+                (WIDTH / 2 - 150, 100, 60, 100),  # pengesë majtas rrugës
+                (WIDTH / 2 + 90, 100, 60, 100),  # pengesë djathtas rrugës
+            ]
+        ),
         "2 dyer": ([(WIDTH / 4, 0), (3 * WIDTH / 4, 0)], []),
         "3 dyer": ([(WIDTH / 5, 0), (WIDTH / 2, 0), (4 * WIDTH / 5, 0)], []),
     }
