@@ -73,18 +73,27 @@ def plot_config_comparison(summary_csv_path="results/batch_results_summary.csv",
     """
     df = pd.read_csv(summary_csv_path)
 
-    plt.figure(figsize=(9, 6))
+    plt.figure(figsize=(11, 7))
     bars = plt.bar(df["config"], df["mean_of_means"],
                     yerr=df["std_of_means"], capsize=8,
                     color="#4a90d9", edgecolor="black")
 
-    for bar, value in zip(bars, df["mean_of_means"]):
-        plt.text(bar.get_x() + bar.get_width() / 2, bar.get_height() + 5,
-                  f"{value:.1f}", ha="center", va="bottom", fontsize=10)
+    # Vendos numrin mbi majën e error bar-it (jo mbi shtyllën), me
+    # kuti të bardhë sfondi që të mos përzihet me vijat e zeza
+    for bar, value, std in zip(bars, df["mean_of_means"], df["std_of_means"]):
+        label_y = value + std + 8
+        plt.text(bar.get_x() + bar.get_width() / 2, label_y,
+                  f"{value:.1f}", ha="center", va="bottom", fontsize=10,
+                  bbox=dict(facecolor="white", edgecolor="none", pad=1.5))
 
     plt.xlabel("Konfigurimi")
     plt.ylabel("Koha mesatare e evakuimit (frames)")
     plt.title(title)
+
+    # Rrotullo emrat e konfigurimeve dhe zvogëlo pak fontin, që të mos
+    # mbivendosen kur janë të gjatë (p.sh. "1 derë - pengesë kanalizuese")
+    plt.xticks(rotation=15, ha="right", fontsize=9)
+
     plt.tight_layout()
 
     if save_path:
