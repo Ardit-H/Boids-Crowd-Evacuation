@@ -103,7 +103,8 @@ def main():
 
     # Shfaq statistikat dhe grafikun pasi të mbyllet dritarja e pygame
     print_summary(simulation.evacuation_times)
-    plot_evacuation_histogram(simulation.evacuation_times)
+    plot_evacuation_histogram(simulation.evacuation_times,
+                              save_path="results/evacuation_histogram.png")
 
     sys.exit()
 
