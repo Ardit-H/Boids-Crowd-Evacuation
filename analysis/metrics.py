@@ -44,11 +44,12 @@ def print_summary(evacuation_times):
     print("--------------------------------\n")
 
 
-def plot_evacuation_histogram(evacuation_times, title="Shpërndarja e Kohës së Evakuimit"):
+def plot_evacuation_histogram(evacuation_times, title="Shpërndarja e Kohës së Evakuimit",
+                                save_path=None):
     """
-    Vizaton një histogram që tregon sa agjentë kanë evakuuar
-    në çdo interval kohor - kjo tregon vizualisht 'flow'-in e evakuimit
-    (p.sh. nëse ka një 'bottleneck', shumë agjentë evakuojnë vonë).
+    Vizaton histogram dhe, nëse jepet save_path, e ruan si file .png
+    përveç që e shfaq në ekran - kështu grafiku mbetet i disponueshëm
+    edhe pas mbylljes së dritares, për ta përdorur direkt në tezë.
     """
     plt.figure(figsize=(8, 5))
     plt.hist(evacuation_times, bins=20, color="#4a90d9", edgecolor="black")
@@ -56,14 +57,19 @@ def plot_evacuation_histogram(evacuation_times, title="Shpërndarja e Kohës së
     plt.ylabel("Numri i agjentëve")
     plt.title(title)
     plt.tight_layout()
+
+    if save_path:
+        plt.savefig(save_path, dpi=150)
+        print(f"Grafiku u ruajt në: {save_path}")
+
     plt.show()
 
 def plot_config_comparison(summary_csv_path="results/batch_results_summary.csv",
-                            title="Krahasimi i Kohës së Evakuimit sipas Konfigurimit"):
+                            title="Krahasimi i Kohës së Evakuimit sipas Konfigurimit",
+                            save_path=None):
     """
-    Lexon CSV-në e përmbledhjes (nga batch_runner) dhe vizaton bar chart
-    krahasues mes konfigurimeve, me error bars që tregojnë variabilitetin
-    (std_of_means) mes trials të ndryshme.
+    Lexon CSV-në e përmbledhjes dhe vizaton bar chart krahasues, plus
+    e ruan si .png nëse jepet save_path.
     """
     df = pd.read_csv(summary_csv_path)
 
@@ -72,7 +78,6 @@ def plot_config_comparison(summary_csv_path="results/batch_results_summary.csv",
                     yerr=df["std_of_means"], capsize=8,
                     color="#4a90d9", edgecolor="black")
 
-    # Shtojmë vlerën numerike mbi çdo shtyllë, për lexueshmëri më të mirë
     for bar, value in zip(bars, df["mean_of_means"]):
         plt.text(bar.get_x() + bar.get_width() / 2, bar.get_height() + 5,
                   f"{value:.1f}", ha="center", va="bottom", fontsize=10)
@@ -81,4 +86,9 @@ def plot_config_comparison(summary_csv_path="results/batch_results_summary.csv",
     plt.ylabel("Koha mesatare e evakuimit (frames)")
     plt.title(title)
     plt.tight_layout()
+
+    if save_path:
+        plt.savefig(save_path, dpi=150)
+        print(f"Grafiku u ruajt në: {save_path}")
+
     plt.show()
