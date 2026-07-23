@@ -97,7 +97,7 @@ def main():
     print(f"\nRezultatet u ruajtën në: results/batch_results_raw.csv")
     print(f"Përmbledhja u ruajt në: results/batch_results_summary.csv")
 
-    plot_config_comparison()
+    plot_config_comparison(save_path="results/config_comparison.png")
 
 
 if __name__ == "__main__":
