@@ -78,13 +78,13 @@ def plot_config_comparison(summary_csv_path="results/batch_results_summary.csv",
                     yerr=df["std_of_means"], capsize=8,
                     color="#4a90d9", edgecolor="black")
 
-    # Vendos numrin mbi majën e error bar-it (jo mbi shtyllën), me
-    # kuti të bardhë sfondi që të mos përzihet me vijat e zeza
+
     for bar, value, std in zip(bars, df["mean_of_means"], df["std_of_means"]):
-        label_y = value + std + 8
-        plt.text(bar.get_x() + bar.get_width() / 2, label_y,
-                  f"{value:.1f}", ha="center", va="bottom", fontsize=10,
-                  bbox=dict(facecolor="white", edgecolor="none", pad=1.5))
+        # Numri vendoset saktë në mes të error bar-it (mesi mes
+        # majës dhe fundit të tij, që përkon me vetë vlerën "value")
+        plt.text(bar.get_x() + bar.get_width() / 2, value,
+                 f"{value:.1f}", ha="center", va="center", fontsize=10,
+                 bbox=dict(facecolor="white", edgecolor="none", pad=1.5))
 
     plt.xlabel("Konfigurimi")
     plt.ylabel("Koha mesatare e evakuimit (frames)")
