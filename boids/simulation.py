@@ -9,6 +9,7 @@ class Simulation:
     """
 
     def __init__(self, num_boids, width, height, exits, obstacles=None,
+                 exit_width=15.0,
                  separation_weight=1.5,
                  alignment_weight=1.0,
                  cohesion_weight=1.0,
@@ -17,7 +18,7 @@ class Simulation:
         self.width = width
         self.height = height
 
-        self.environment = Environment(width, height, exits, obstacles)
+        self.environment = Environment(width, height, exits, obstacles, exit_width)
 
         self.separation_weight = separation_weight
         self.alignment_weight = alignment_weight
