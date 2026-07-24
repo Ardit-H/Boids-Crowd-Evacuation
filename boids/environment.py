@@ -7,16 +7,17 @@ class Environment:
     daljet (dyert) dhe pengesat brenda saj.
     """
 
-    def __init__(self, width, height, exits, obstacles=None):
+    def __init__(self, width, height, exits, obstacles=None, exit_width=15.0):
         self.width = width
         self.height = height
 
-        # Daljet: listë e pikave (x, y) - qendra e çdo dere
-        # p.sh. [(450, 0)] për një derë të vetme lart mesit
         self.exits = [np.array(exit_point, dtype=float) for exit_point in exits]
-
-        # Pengesat: listë e drejtkëndëshave (x, y, gjerësi, lartësi)
         self.obstacles = obstacles if obstacles is not None else []
+
+        # Gjerësia e derës - sa larg pikës qendrore konsiderohet "brenda"
+        # derës. Vlerë më e madhe = derë më e gjerë = evakuim potencialisht
+        # më i shpejtë (më lehtë të arrihet, më pak grumbullim te pika qendrore)
+        self.exit_width = exit_width
 
     def nearest_exit(self, position):
         """
@@ -32,12 +33,12 @@ class Environment:
         nearest = self.nearest_exit(position)
         return np.linalg.norm(position - nearest)
 
-    def has_reached_exit(self, position, threshold=15.0):
+    def has_reached_exit(self, position):
         """
         Kontrollon nëse pozicioni i dhënë ka arritur te ndonjë dalje
-        (brenda një distance të vogël - threshold).
+        (brenda gjerësisë së konfiguruar të derës - self.exit_width).
         """
-        return self.distance_to_nearest_exit(position) < threshold
+        return self.distance_to_nearest_exit(position) < self.exit_width
 
     def obstacle_avoidance_force(self, position, avoid_radius=40.0):
         """
