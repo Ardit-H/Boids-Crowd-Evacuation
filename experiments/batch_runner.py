@@ -50,32 +50,32 @@ def run_batch(config_name, num_boids, width, height, exits, obstacles=None,
 
 def main():
     WIDTH, HEIGHT = 900, 700
-    NUM_BOIDS = 80
     NUM_TRIALS = 30
 
-    # Konfigurimet që do t'i krahasojmë
+    # Çdo konfigurim: (num_boids, exits, obstacles, exit_width)
     configs = {
-        "1 derë - e ngushtë (15px)": ([(WIDTH / 2, 0)], [], 15.0),
-        "1 derë - mesatare (30px)": ([(WIDTH / 2, 0)], [], 30.0),
-        "1 derë - e gjerë (60px)": ([(WIDTH / 2, 0)], [], 60.0),
-        "2 dyer": ([(WIDTH / 4, 0), (3 * WIDTH / 4, 0)], [], 15.0),
-        "3 dyer": ([(WIDTH / 5, 0), (WIDTH / 2, 0), (4 * WIDTH / 5, 0)], [], 15.0),
+        # --- Densitet i ndryshueshëm (dyer/derë identike, ndryshon vetëm numri i njerëzve) ---
+        "Densitet i ulët (40 boid)": (40, [(WIDTH / 2, 0)], [], 15.0),
+        "Densitet mesatar (80 boid)": (80, [(WIDTH / 2, 0)], [], 15.0),
+        "Densitet i lartë (150 boid)": (150, [(WIDTH / 2, 0)], [], 15.0),
+
+        # --- Kombinim: numër dyersh x gjerësi dere ---
+        "2 dyer - ngushta (15px)": (80, [(WIDTH / 4, 0), (3 * WIDTH / 4, 0)], [], 15.0),
+        "2 dyer - gjera (40px)": (80, [(WIDTH / 4, 0), (3 * WIDTH / 4, 0)], [], 40.0),
     }
 
     all_results = []
-    for config_name, (exits, obstacles, exit_width) in configs.items():
-        results = run_batch(config_name, NUM_BOIDS, WIDTH, HEIGHT, exits,
-                            obstacles=obstacles, exit_width=exit_width,
-                            num_trials=NUM_TRIALS)
+    for config_name, (num_boids, exits, obstacles, exit_width) in configs.items():
+        results = run_batch(config_name, num_boids, WIDTH, HEIGHT, exits,
+                             obstacles=obstacles, exit_width=exit_width,
+                             num_trials=NUM_TRIALS)
         all_results.extend(results)
-    # Konvertojmë në DataFrame (pandas) - lehtëson analizën dhe eksportimin
+
     df = pd.DataFrame(all_results)
 
-    # Ruajmë rezultatet e plota (çdo trial individual) në CSV
     os.makedirs("results", exist_ok=True)
     df.to_csv("results/batch_results_raw.csv", index=False)
 
-    # Krijojmë dhe ruajmë përmbledhjen e krahasuar (mesatare e mesatareve, per config)
     summary = df.groupby("config").agg(
         mean_of_means=("mean", "mean"),
         std_of_means=("mean", "std"),
