@@ -9,13 +9,12 @@ from boids.simulation import Simulation
 from analysis.metrics import summarize_evacuation, plot_config_comparison
 
 
-def run_headless_simulation(num_boids, width, height, exits, obstacles=None, max_steps=2000):
+def run_headless_simulation(num_boids, width, height, exits, obstacles=None,
+                             exit_width=15.0, max_steps=2000):
     """
-    Ekzekuton një simulim TË VETËM pa vizualizim (headless) - shumë
-    më shpejt se me pygame, sepse s'humb kohë duke vizatuar.
-    Kthen listën e kohëve të evakuimit të të gjithë agjentëve.
+    Ekzekuton një simulim TË VETËM pa vizualizim (headless).
     """
-    simulation = Simulation(num_boids, width, height, exits, obstacles)
+    simulation = Simulation(num_boids, width, height, exits, obstacles, exit_width)
 
     steps = 0
     while not simulation.is_finished() and steps < max_steps:
@@ -26,7 +25,7 @@ def run_headless_simulation(num_boids, width, height, exits, obstacles=None, max
 
 
 def run_batch(config_name, num_boids, width, height, exits, obstacles=None,
-              num_trials=30, max_steps=2000):
+              exit_width=15.0, num_trials=30, max_steps=2000):
     """
     Ekzekuton të njëjtin konfigurim 'num_trials' herë (me pozicione
     fillestare random të reja çdo herë), dhe mbledh statistikat
@@ -37,7 +36,7 @@ def run_batch(config_name, num_boids, width, height, exits, obstacles=None,
     results = []
     for trial in range(num_trials):
         evacuation_times = run_headless_simulation(
-            num_boids, width, height, exits, obstacles, max_steps)
+            num_boids, width, height, exits, obstacles, exit_width, max_steps)
         stats = summarize_evacuation(evacuation_times)
         stats["config"] = config_name
         stats["trial"] = trial
@@ -56,25 +55,19 @@ def main():
 
     # Konfigurimet që do t'i krahasojmë
     configs = {
-        "1 derë - pa pengesë": ([(WIDTH / 2, 0)], []),
-        "1 derë - me pengesë": ([(WIDTH / 2, 0)], [(WIDTH / 2 - 40, 150, 80, 40)]),
-        "1 derë - pengesë kanalizuese": (
-            [(WIDTH / 2, 0)],
-            [
-                (WIDTH / 2 - 150, 100, 60, 100),  # pengesë majtas rrugës
-                (WIDTH / 2 + 90, 100, 60, 100),  # pengesë djathtas rrugës
-            ]
-        ),
-        "2 dyer": ([(WIDTH / 4, 0), (3 * WIDTH / 4, 0)], []),
-        "3 dyer": ([(WIDTH / 5, 0), (WIDTH / 2, 0), (4 * WIDTH / 5, 0)], []),
+        "1 derë - e ngushtë (15px)": ([(WIDTH / 2, 0)], [], 15.0),
+        "1 derë - mesatare (30px)": ([(WIDTH / 2, 0)], [], 30.0),
+        "1 derë - e gjerë (60px)": ([(WIDTH / 2, 0)], [], 60.0),
+        "2 dyer": ([(WIDTH / 4, 0), (3 * WIDTH / 4, 0)], [], 15.0),
+        "3 dyer": ([(WIDTH / 5, 0), (WIDTH / 2, 0), (4 * WIDTH / 5, 0)], [], 15.0),
     }
 
     all_results = []
-    for config_name, (exits, obstacles) in configs.items():
+    for config_name, (exits, obstacles, exit_width) in configs.items():
         results = run_batch(config_name, NUM_BOIDS, WIDTH, HEIGHT, exits,
-                            obstacles=obstacles, num_trials=NUM_TRIALS)
+                            obstacles=obstacles, exit_width=exit_width,
+                            num_trials=NUM_TRIALS)
         all_results.extend(results)
-
     # Konvertojmë në DataFrame (pandas) - lehtëson analizën dhe eksportimin
     df = pd.DataFrame(all_results)
 
