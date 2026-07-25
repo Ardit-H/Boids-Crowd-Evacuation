@@ -35,10 +35,17 @@ class Environment:
 
     def has_reached_exit(self, position):
         """
-        Kontrollon nëse pozicioni i dhënë ka arritur te ndonjë dalje
-        (brenda gjerësisë së konfiguruar të derës - self.exit_width).
+        Kontrollon nëse pozicioni ka arritur te ndonjë dalje - konsideron
+        derën si një SEGMENT (jo pikë), kështu boid-et që kalojnë afër
+        y=0 brenda gjerësisë së derës evakuojnë menjëherë, pa pasur
+        nevojë të arrijnë saktësisht qendrën e derës.
         """
-        return self.distance_to_nearest_exit(position) < self.exit_width
+        for exit_pos in self.exits:
+            within_width = abs(position[0] - exit_pos[0]) < (self.exit_width / 2 + 10)
+            near_door_y = position[1] < 20
+            if within_width and near_door_y:
+                return True
+        return False
 
     def obstacle_avoidance_force(self, position, avoid_radius=40.0):
         """
@@ -108,3 +115,37 @@ class Environment:
                         boid.velocity[0] -= 2.0
                     else:
                         boid.velocity[0] += 2.0
+
+    def enforce_boundaries(self, boid):
+        """
+        Kufi i FORTË i dhomës: pavarësisht forcave (që janë vetëm
+        'sugjerime' të buta), boid-i KURRË nuk mund të kalojë jashtë
+        mureve përveç saktësisht brenda gjerësisë së një dere. Kjo
+        eliminon çdo mundësi kalimi 'anash' ose zhdukjeje përtej
+        ekranit - i njëjti parim si resolve_collisions për pengesat.
+        """
+        # Muri i majtë / djathtë - gjithmonë i fortë
+        if boid.position[0] < 0:
+            boid.position[0] = 0
+            boid.velocity[0] = abs(boid.velocity[0])
+        elif boid.position[0] > self.width:
+            boid.position[0] = self.width
+            boid.velocity[0] = -abs(boid.velocity[0])
+
+        # Muri i poshtëm - gjithmonë i fortë
+        if boid.position[1] > self.height:
+            boid.position[1] = self.height
+            boid.velocity[1] = -abs(boid.velocity[1])
+
+        # Muri i sipërm - i fortë KUDO përveç saktësisht brenda
+        # gjerësisë së një dere (aty lejohet kalimi, dhe do të
+        # evakuohet menjëherë nga has_reached_exit)
+        if boid.position[1] < 0:
+            near_door = any(
+                abs(boid.position[0] - exit_pos[0]) < (self.exit_width / 2)
+                for exit_pos in self.exits
+            )
+            if not near_door:
+                boid.position[1] = 0
+                if boid.velocity[1] < 0:
+                    boid.velocity[1] = 0
