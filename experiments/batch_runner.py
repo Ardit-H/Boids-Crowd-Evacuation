@@ -1,10 +1,15 @@
+import json
 import numpy as np
 import pandas as pd
 import sys
 import os
 
-sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), '..')))
 
+
+# Përcakton rrënjën e projektit bazuar te vendndodhja e këtij file-i,
+# jo te "working directory" e ekzekutimit - kështu funksionon njësoj
+# pavarësisht se si/nga ku ekzekutohet skripti
+PROJECT_ROOT = os.path.abspath(os.path.join(os.path.dirname(__file__), '..'))
 from boids.simulation import Simulation
 from analysis.metrics import summarize_evacuation, plot_config_comparison
 
@@ -52,29 +57,28 @@ def main():
     WIDTH, HEIGHT = 900, 700
     NUM_TRIALS = 30
 
-    # Çdo konfigurim: (num_boids, exits, obstacles, exit_width)
-    configs = {
-        # --- Densitet i ndryshueshëm (dyer/derë identike, ndryshon vetëm numri i njerëzve) ---
-        "Densitet i ulët (40 boid)": (40, [(WIDTH / 2, 0)], [], 15.0),
-        "Densitet mesatar (80 boid)": (80, [(WIDTH / 2, 0)], [], 15.0),
-        "Densitet i lartë (150 boid)": (150, [(WIDTH / 2, 0)], [], 15.0),
-
-        # --- Kombinim: numër dyersh x gjerësi dere ---
-        "2 dyer - ngushta (15px)": (80, [(WIDTH / 4, 0), (3 * WIDTH / 4, 0)], [], 15.0),
-        "2 dyer - gjera (40px)": (80, [(WIDTH / 4, 0), (3 * WIDTH / 4, 0)], [], 40.0),
-    }
+    # Lexon konfigurimet nga JSON
+    configs_path = os.path.join(PROJECT_ROOT, "experiments", "configs.json")
+    with open(configs_path, "r", encoding="utf-8") as f:
+        configs = json.load(f)
 
     all_results = []
-    for config_name, (num_boids, exits, obstacles, exit_width) in configs.items():
-        results = run_batch(config_name, num_boids, WIDTH, HEIGHT, exits,
-                             obstacles=obstacles, exit_width=exit_width,
-                             num_trials=NUM_TRIALS)
+    for config_name, cfg in configs.items():
+        results = run_batch(
+            config_name,
+            cfg["num_boids"], WIDTH, HEIGHT,
+            cfg["exits"],
+            obstacles=cfg.get("obstacles", []),
+            exit_width=cfg.get("exit_width", 15.0),
+            num_trials=NUM_TRIALS
+        )
         all_results.extend(results)
 
     df = pd.DataFrame(all_results)
 
-    os.makedirs("results", exist_ok=True)
-    df.to_csv("results/batch_results_raw.csv", index=False)
+    results_dir = os.path.join(PROJECT_ROOT, "results")
+    os.makedirs(results_dir, exist_ok=True)
+    df.to_csv(os.path.join(results_dir, "batch_results_raw.csv"), index=False)
 
     summary = df.groupby("config").agg(
         mean_of_means=("mean", "mean"),
@@ -83,14 +87,16 @@ def main():
         overall_std=("std", "mean")
     ).reset_index()
 
-    summary.to_csv("results/batch_results_summary.csv", index=False)
+    summary.to_csv(os.path.join(results_dir, "batch_results_summary.csv"), index=False)
 
     print("\n\n=== PËRMBLEDHJA FINALE (mesatare nga të gjitha trials) ===")
     print(summary.to_string(index=False))
     print(f"\nRezultatet u ruajtën në: results/batch_results_raw.csv")
     print(f"Përmbledhja u ruajt në: results/batch_results_summary.csv")
 
-    plot_config_comparison(save_path="results/config_comparison.png")
+    summary_csv_path = os.path.join(results_dir, "batch_results_summary.csv")
+    plot_config_comparison(summary_csv_path=summary_csv_path,
+                           save_path=os.path.join(results_dir, "config_comparison.png"))
 
 
 if __name__ == "__main__":

@@ -1,0 +1,56 @@
+{
+  "1 derë - e ngushtë (15px)": {
+    "num_boids": 80,
+    "exits": [[450, 0]],
+    "obstacles": [],
+    "exit_width": 15.0
+  },
+  "1 derë - mesatare (30px)": {
+    "num_boids": 80,
+    "exits": [[450, 0]],
+    "obstacles": [],
+    "exit_width": 30.0
+  },
+  "1 derë - e gjerë (60px)": {
+    "num_boids": 80,
+    "exits": [[450, 0]],
+    "obstacles": [],
+    "exit_width": 60.0
+  },
+  "2 dyer - ngushta (15px)": {
+    "num_boids": 80,
+    "exits": [[225, 0], [675, 0]],
+    "obstacles": [],
+    "exit_width": 15.0
+  },
+  "2 dyer - gjera (40px)": {
+    "num_boids": 80,
+    "exits": [[225, 0], [675, 0]],
+    "obstacles": [],
+    "exit_width": 40.0
+  },
+  "3 dyer": {
+    "num_boids": 80,
+    "exits": [[180, 0], [450, 0], [720, 0]],
+    "obstacles": [],
+    "exit_width": 15.0
+  },
+  "1 derë - me pengesë": {
+    "num_boids": 80,
+    "exits": [[450, 0]],
+    "obstacles": [[410, 150, 80, 40]],
+    "exit_width": 15.0
+  },
+  "Densitet i ulët (40 boid)": {
+    "num_boids": 40,
+    "exits": [[450, 0]],
+    "obstacles": [],
+    "exit_width": 15.0
+  },
+  "Densitet i lartë (150 boid)": {
+    "num_boids": 150,
+    "exits": [[450, 0]],
+    "obstacles": [],
+    "exit_width": 15.0
+  }
+}
