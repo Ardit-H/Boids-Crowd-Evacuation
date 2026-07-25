@@ -48,6 +48,12 @@ class Simulation:
         return neighbors
 
     def keep_within_bounds(self, boid, margin=50, turn_force=0.5):
+        """
+        Mban boid-in brenda kufijve. Muri i sipërm mbetet i PLOTË (i
+        ngurtë) KUDO përveç saktësisht brenda gjerësisë reale të derës
+        (self.environment.exit_width) - kështu boid-et NUK mund të
+        'rrëshqasin jashtë' anash derës, vetëm saktësisht nëpër të.
+        """
         steer = np.zeros(2)
 
         if boid.position[0] < margin:
@@ -55,7 +61,17 @@ class Simulation:
         elif boid.position[0] > self.width - margin:
             steer[0] = -turn_force
 
-        if boid.position[1] < margin:
+        # Zona e "kalimit të lirë" = saktësisht gjysma e gjerësisë së
+        # derës (jo më shumë) - kështu vetëm brenda vetë derës lejohet
+        # kalimi, çdo gjë tjetër pranë saj mbetet mur i ngurtë
+        half_exit_width = self.environment.exit_width / 2
+
+        near_an_exit_x = any(
+            abs(boid.position[0] - exit_pos[0]) < half_exit_width
+            for exit_pos in self.environment.exits
+        )
+
+        if boid.position[1] < margin and not near_an_exit_x:
             steer[1] = turn_force
         elif boid.position[1] > self.height - margin:
             steer[1] = -turn_force
@@ -99,6 +115,7 @@ class Simulation:
 
             boid.update(acceleration)
             self.environment.resolve_collisions(boid)
+            self.environment.enforce_boundaries(boid)
 
             # Kontrollojmë nëse ka arritur te dalja
             if self.environment.has_reached_exit(boid.position):
