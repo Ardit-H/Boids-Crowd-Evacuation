@@ -26,16 +26,39 @@ class Simulation:
         self.exit_weight = exit_weight
         self.obstacle_weight = obstacle_weight
 
-        # Krijojmë N boid-e me pozicione dhe shpejtësi fillestare random
+        # Krijojmë N boid-e me pozicione dhe shpejtësi fillestare random,
+        # duke shmangur pozicionet që bien brenda ndonjë pengese (do të
+        # krijonin boid të "ngujuar" që nga vetë fillimi)
         self.boids = []
         for _ in range(num_boids):
-            position = [np.random.uniform(0, width), np.random.uniform(0, height)]
+            position = self._random_free_position(width, height)
             velocity = [np.random.uniform(-2, 2), np.random.uniform(-2, 2)]
             self.boids.append(Boid(position, velocity))
 
         # Regjistrimi i kohës së evakuimit për çdo boid (për analizë)
         self.evacuation_times = []
         self.time_elapsed = 0  # numërues i "frame"-ve/hapave kohorë
+
+    def _random_free_position(self, width, height, max_attempts=50):
+        """
+        Gjeneron një pozicion random që NUK bie brenda asnjë pengese.
+        Provon deri në 'max_attempts' herë; nëse s'gjen dot (rast
+        ekstrem, hapësirë shumë e mbushur me pengesa), kthen pozicionin
+        e fundit të provuar si fallback, për të mos ngecur pafundësisht.
+        """
+        for _ in range(max_attempts):
+            position = [np.random.uniform(0, width), np.random.uniform(0, height)]
+            if not self._is_inside_any_obstacle(position):
+                return position
+        return position
+
+    def _is_inside_any_obstacle(self, position, padding=10.0):
+        x, y = position
+        for (ox, oy, ow, oh) in self.environment.obstacles:
+            if (ox - padding) < x < (ox + ow + padding) and \
+                    (oy - padding) < y < (oy + oh + padding):
+                return True
+        return False
 
     def get_neighbors(self, boid, radius=50.0):
         neighbors = []
@@ -93,8 +116,8 @@ class Simulation:
             alignment_force = boid.align(neighbors) * self.alignment_weight
             cohesion_force = boid.cohesion(neighbors) * self.cohesion_weight
 
-            exit_position = self.environment.nearest_exit(boid.position)
-            exit_force = boid.seek_exit(exit_position) * self.exit_weight
+            exit_target = self.environment.get_next_waypoint(boid.position)
+            exit_force = boid.seek_exit(exit_target) * self.exit_weight
 
             obstacle_force = self.environment.obstacle_avoidance_force(
                 boid.position) * self.obstacle_weight
