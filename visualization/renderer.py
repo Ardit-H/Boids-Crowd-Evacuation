@@ -2,6 +2,8 @@ import pygame
 import numpy as np
 import sys
 import os
+import ctypes
+import ctypes.wintypes
 
 sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), '..')))
 PROJECT_ROOT = os.path.abspath(os.path.join(os.path.dirname(__file__), '..'))
@@ -136,9 +138,41 @@ def sync_from_simulation_if_active(simulation, custom_exits, custom_obstacles,
     return simulation, None
 
 def main():
+    global SIM_WIDTH, SIM_HEIGHT, WIDTH, HEIGHT
+
     pygame.init()
-    screen = pygame.display.set_mode((WIDTH, HEIGHT))
+
+    # Krijo fillimisht një dritare të vogël, të ripërmasueshme - do ta
+    # maksimizojmë menjëherë përmes Windows API, i cili e llogarit vetë
+    # saktë zonën e disponueshme (duke përjashtuar taskbar-in), pa
+    # nevojë për hamendje manuale të title bar-it/kufijve
+    screen = pygame.display.set_mode((800, 600), pygame.RESIZABLE)
     pygame.display.set_caption("Boids Crowd Simulation")
+
+    try:
+        hwnd = pygame.display.get_wm_info()["window"]
+        SW_MAXIMIZE = 3
+        ctypes.windll.user32.ShowWindow(hwnd, SW_MAXIMIZE)
+
+        # Lexo madhësinë REALE të zonës së brendshme (client area) pas
+        # maksimizimit - kjo është saktësisht ajo çka mund ta shohim,
+        # pa llogaritur vetë title bar/border
+        client_rect = ctypes.wintypes.RECT()
+        ctypes.windll.user32.GetClientRect(hwnd, ctypes.byref(client_rect))
+        actual_width = client_rect.right - client_rect.left
+        actual_height = client_rect.bottom - client_rect.top
+
+        WIDTH, HEIGHT = actual_width, actual_height
+        screen = pygame.display.set_mode((WIDTH, HEIGHT))
+    except Exception:
+        # Fallback nëse s'jemi në Windows - përdor rezolucionin e ekranit
+        display_info = pygame.display.Info()
+        WIDTH = display_info.current_w
+        HEIGHT = display_info.current_h - 70
+        screen = pygame.display.set_mode((WIDTH, HEIGHT))
+
+    SIM_WIDTH = WIDTH - PANEL_WIDTH
+    SIM_HEIGHT = HEIGHT
     clock = pygame.time.Clock()
     font = pygame.font.SysFont("Arial", 15)
     small_font = pygame.font.SysFont("Arial", 12)
