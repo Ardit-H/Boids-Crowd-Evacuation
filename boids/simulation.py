@@ -91,6 +91,23 @@ class Simulation:
 
         return steer
 
+    def _get_exit_target(self, position, final_approach_radius=70.0):
+        """
+        Nëse boid-i është mjaftueshëm afër (distancë Euklidiane) me
+        pikën e saktë të një dere, e ndjek atë pikë DIREKT, duke
+        anashkaluar flow field-in - pranë vetë derës s'ka pengesa nga
+        vetë definicioni, kështu tërheqja direkte është gjithmonë e
+        sigurt. Kjo eliminon lëkundjet/zigzag që mund të shkaktohen
+        nga gradienti i flow field pranë vetë qëllimit final.
+        """
+        nearest = self.environment.nearest_exit(position)
+        distance_to_exit = np.linalg.norm(position - nearest)
+
+        if distance_to_exit < final_approach_radius:
+            return nearest
+
+        return self.environment.get_next_waypoint(position)
+
     def step(self):
         """
         Ekzekuton një hap kohor: përditëson çdo boid, dhe heq nga
@@ -106,7 +123,7 @@ class Simulation:
             alignment_force = boid.align(neighbors) * self.alignment_weight
             cohesion_force = boid.cohesion(neighbors) * self.cohesion_weight
 
-            exit_target = self.environment.get_next_waypoint(boid.position)
+            exit_target = self._get_exit_target(boid.position)
             exit_force = boid.seek_exit(exit_target) * self.exit_weight
 
             obstacle_force = self.environment.obstacle_avoidance_force(
