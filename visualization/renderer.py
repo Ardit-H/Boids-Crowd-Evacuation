@@ -21,6 +21,7 @@ PANEL_COLOR = (35, 35, 48)
 BOID_COLOR = (100, 200, 255)
 EXIT_COLOR = (80, 220, 100)
 OBSTACLE_COLOR = (200, 80, 80)
+CIRCLE_OBSTACLE_COLOR = (200, 120, 80)
 PREVIEW_COLOR = (200, 80, 80, 120)
 BUTTON_COLOR = (60, 60, 80)
 BUTTON_HOVER_COLOR = (80, 80, 105)
@@ -121,17 +122,16 @@ def draw_obstacles_from_list(screen, obstacles):
     for (ox, oy, ow, oh) in obstacles:
         pygame.draw.rect(screen, OBSTACLE_COLOR, (ox, oy, ow, oh))
 
+def draw_circle_obstacles_from_list(screen, circles):
+    for (cx, cy, radius) in circles:
+        pygame.draw.circle(screen, CIRCLE_OBSTACLE_COLOR, (int(cx), int(cy)), int(radius))
 
-def sync_from_simulation_if_active(simulation, custom_exits, custom_obstacles):
-    """
-    Nëse ka simulim aktiv dhe përdoruesi don të redaktojë (dyer/pengesa/
-    pastrim), 'kthen' gjendjen e redaktueshme nga simulimi aktual dhe e
-    ndalon atë - kështu butonat e redaktimit funksionojnë gjithmonë,
-    edhe pasi ka filluar një simulim.
-    """
+def sync_from_simulation_if_active(simulation, custom_exits, custom_obstacles,
+                                    custom_circle_obstacles):
     if simulation is not None:
         custom_exits[:] = list(simulation.environment.exit_specs)
         custom_obstacles[:] = list(simulation.environment.obstacles)
+        custom_circle_obstacles[:] = list(simulation.environment.circle_obstacles)
         return None, False
     return simulation, None
 
@@ -149,6 +149,7 @@ def main():
     selected_density = 80
     custom_exits = [("top", SIM_WIDTH / 2)]   # default: 1 derë në mes të murit sipër
     custom_obstacles = []                      # default: pa pengesa
+    custom_circle_obstacles = []  # default: pa pengesa rrethore
 
     # --- Mënyra e vendosjes (placement mode) ---
     # None = normal (kontrollon simulimin), "door" = vendos dyer,
@@ -167,14 +168,14 @@ def main():
         [("40 boid (ulët)", 40), ("80 boid (mesatar)", 80), ("150 boid (lartë)", 150)])
     density_buttons[1].selected = True
 
-    door_mode_btn = Button(px, 300, bw, 34, "🚪 Vendos Dyer (klikim)", "door")
-    obstacle_mode_btn = Button(px, 340, bw, 34, "▦ Vendos Pengesa (zvarrit)", "obstacle")
-    clear_doors_btn = Button(px, 385, bw, 28, "Pastro Dyert", "clear_doors")
-    clear_obstacles_btn = Button(px, 418, bw, 28, "Pastro Pengesat", "clear_obstacles")
+    door_mode_btn = Button(px, 300, bw, 32, "🚪 Vendos Dyer (klikim)", "door")
+    obstacle_mode_btn = Button(px, 336, bw, 32, "▦ Pengesë Drejtk. (zvarrit)", "obstacle")
+    circle_mode_btn = Button(px, 372, bw, 32, "● Pengesë Rrethore (zvarrit)", "circle")
+    clear_doors_btn = Button(px, 412, bw, 26, "Pastro Dyert", "clear_doors")
+    clear_obstacles_btn = Button(px, 442, bw, 26, "Pastro Pengesat", "clear_obstacles")
 
-    start_button = Button(px, 470, bw, 40, "▶  Fillo Simulimin", None)
-    graph_button = Button(px, 520, bw, 40, "📊  Shfaq Grafikun", None)
-
+    start_button = Button(px, 490, bw, 38, "▶  Fillo Simulimin", None)
+    graph_button = Button(px, 536, bw, 38, "📊  Shfaq Grafikun", None)
     selection_groups = [width_buttons, density_buttons]
 
     simulation = None
@@ -200,6 +201,9 @@ def main():
                 elif in_sim_area and placement_mode == "obstacle":
                     dragging_from = mouse_pos
 
+                elif in_sim_area and placement_mode == "circle":
+                    dragging_from = mouse_pos
+
                 elif not in_sim_area:
                     # --- Klikime te paneli (butona) ---
                     for group in selection_groups:
@@ -218,25 +222,31 @@ def main():
 
                     if door_mode_btn.is_clicked(mouse_pos):
                         simulation, running_sim = sync_from_simulation_if_active(
-                            simulation, custom_exits, custom_obstacles)
+                            simulation, custom_exits, custom_obstacles, custom_circle_obstacles)
                         placement_mode = None if placement_mode == "door" else "door"
                     if obstacle_mode_btn.is_clicked(mouse_pos):
                         simulation, running_sim = sync_from_simulation_if_active(
-                            simulation, custom_exits, custom_obstacles)
+                            simulation, custom_exits, custom_obstacles, custom_circle_obstacles)
                         placement_mode = None if placement_mode == "obstacle" else "obstacle"
+                    if circle_mode_btn.is_clicked(mouse_pos):
+                        simulation, running_sim = sync_from_simulation_if_active(
+                            simulation, custom_exits, custom_obstacles, custom_circle_obstacles)
+                        placement_mode = None if placement_mode == "circle" else "circle"
                     if clear_doors_btn.is_clicked(mouse_pos):
                         simulation, running_sim = sync_from_simulation_if_active(
-                            simulation, custom_exits, custom_obstacles)
+                            simulation, custom_exits, custom_obstacles, custom_circle_obstacles)
                         custom_exits = []
                     if clear_obstacles_btn.is_clicked(mouse_pos):
                         simulation, running_sim = sync_from_simulation_if_active(
-                            simulation, custom_exits, custom_obstacles)
+                            simulation, custom_exits, custom_obstacles, custom_circle_obstacles)
                         custom_obstacles = []
+                        custom_circle_obstacles = []
 
                     if start_button.is_clicked(mouse_pos) and len(custom_exits) > 0:
                         simulation = Simulation(selected_density, SIM_WIDTH, SIM_HEIGHT,
-                                                 custom_exits, obstacles=custom_obstacles,
-                                                 exit_width=selected_width)
+                                                custom_exits, obstacles=custom_obstacles,
+                                                exit_width=selected_width,
+                                                circle_obstacles=custom_circle_obstacles)
                         running_sim = True
                         stats_printed = False
 
@@ -248,12 +258,20 @@ def main():
 
             if event.type == pygame.MOUSEBUTTONUP:
                 if dragging_from is not None and in_sim_area:
-                    x1, y1 = dragging_from
-                    x2, y2 = mouse_pos
-                    ox, oy = min(x1, x2), min(y1, y2)
-                    ow, oh = abs(x2 - x1), abs(y2 - y1)
-                    if ow > 5 and oh > 5:
-                        custom_obstacles.append((ox, oy, ow, oh))
+                    if placement_mode == "obstacle":
+                        x1, y1 = dragging_from
+                        x2, y2 = mouse_pos
+                        ox, oy = min(x1, x2), min(y1, y2)
+                        ow, oh = abs(x2 - x1), abs(y2 - y1)
+                        if ow > 5 and oh > 5:
+                            custom_obstacles.append((ox, oy, ow, oh))
+
+                    elif placement_mode == "circle":
+                        cx, cy = dragging_from
+                        radius = np.linalg.norm(np.array(mouse_pos) - np.array(dragging_from))
+                        if radius > 5:
+                            custom_circle_obstacles.append((cx, cy, radius))
+
                 dragging_from = None
 
         # --- Përditëso simulimin (vetëm jashtë placement mode) ---
@@ -273,21 +291,32 @@ def main():
             draw_exits_from_specs(screen, simulation.environment.exit_specs,
                                   simulation.environment.exit_width, SIM_WIDTH, SIM_HEIGHT)
             draw_obstacles_from_list(screen, simulation.environment.obstacles)
+            draw_circle_obstacles_from_list(screen, simulation.environment.circle_obstacles)
             for boid in simulation.boids:
                 draw_boid(screen, boid)
         else:
             draw_exits_from_specs(screen, custom_exits, selected_width, SIM_WIDTH, SIM_HEIGHT)
             draw_obstacles_from_list(screen, custom_obstacles)
+            draw_circle_obstacles_from_list(screen, custom_circle_obstacles)
 
         # Preview i pengesës gjatë "drag"
         if dragging_from is not None:
-            x1, y1 = dragging_from
-            x2, y2 = mouse_pos
-            ox, oy = min(x1, x2), min(y1, y2)
-            ow, oh = abs(x2 - x1), abs(y2 - y1)
-            preview_surface = pygame.Surface((max(ow, 1), max(oh, 1)), pygame.SRCALPHA)
-            preview_surface.fill((200, 80, 80, 120))
-            screen.blit(preview_surface, (ox, oy))
+            if placement_mode == "obstacle":
+                x1, y1 = dragging_from
+                x2, y2 = mouse_pos
+                ox, oy = min(x1, x2), min(y1, y2)
+                ow, oh = abs(x2 - x1), abs(y2 - y1)
+                preview_surface = pygame.Surface((max(ow, 1), max(oh, 1)), pygame.SRCALPHA)
+                preview_surface.fill((200, 80, 80, 120))
+                screen.blit(preview_surface, (ox, oy))
+
+            elif placement_mode == "circle":
+                cx, cy = dragging_from
+                radius = int(np.linalg.norm(np.array(mouse_pos) - np.array(dragging_from)))
+                preview_surface = pygame.Surface((radius * 2, radius * 2), pygame.SRCALPHA)
+                pygame.draw.circle(preview_surface, (200, 120, 80, 120),
+                                   (radius, radius), radius)
+                screen.blit(preview_surface, (cx - radius, cy - radius))
 
         pygame.draw.rect(screen, PANEL_COLOR, (SIM_WIDTH, 0, PANEL_WIDTH, HEIGHT))
 
@@ -300,9 +329,11 @@ def main():
             btn.draw(screen, font, mouse_pos)
 
         door_mode_btn.draw(screen, small_font, mouse_pos,
-                            MODE_ACTIVE_COLOR if placement_mode == "door" else None)
+                           MODE_ACTIVE_COLOR if placement_mode == "door" else None)
         obstacle_mode_btn.draw(screen, small_font, mouse_pos,
-                                MODE_ACTIVE_COLOR if placement_mode == "obstacle" else None)
+                               MODE_ACTIVE_COLOR if placement_mode == "obstacle" else None)
+        circle_mode_btn.draw(screen, small_font, mouse_pos,
+                             MODE_ACTIVE_COLOR if placement_mode == "circle" else None)
         clear_doors_btn.draw(screen, small_font, mouse_pos)
         clear_obstacles_btn.draw(screen, small_font, mouse_pos)
 
