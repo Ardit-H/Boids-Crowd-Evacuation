@@ -14,26 +14,20 @@ class FlowField:
     shmangies (obstacle_avoidance_force).
     """
 
-    def __init__(self, width, height, obstacles, exits, exit_width,
+    def __init__(self, width, height, obstacles, exit_specs, exit_width,
                  cell_size=20, blocked_inflate=8.0,
                  wall_avoid_radius=40.0, wall_penalty_weight=3.0):
         self.cell_size = cell_size
         self.cols = int(np.ceil(width / cell_size))
         self.rows = int(np.ceil(height / cell_size))
 
-        # Bllokim absolut vetëm për vetë pengesën + një margjinë e vogël
-        # (mjafton për të penguar 'prerjen e cepit' diagonal, jo krejt
-        # zonën e ndikimit të forcës fizike)
         self.blocked = self._build_blocked_grid(obstacles, blocked_inflate)
-
-        # Distanca (në px) e çdo qelize deri te muri/pengesa më e afërt -
-        # përdoret për të llogaritur 'kosto shtesë' pranë mureve
         self.wall_distance = self._compute_wall_distance()
 
         self.wall_avoid_radius = wall_avoid_radius
         self.wall_penalty_weight = wall_penalty_weight
 
-        source_cells = self._find_exit_cells(exits, exit_width)
+        source_cells = self._find_exit_cells(exit_specs, exit_width)
         self.distance = self._weighted_dijkstra(source_cells)
         self.direction = self._compute_directions()
 
@@ -49,16 +43,47 @@ class FlowField:
             blocked[row0:row1 + 1, col0:col1 + 1] = True
         return blocked
 
-    def _find_exit_cells(self, exits, exit_width):
+    def _find_exit_cells(self, exit_specs, exit_width):
+        """
+        Gjen qelizat e grid-it që korrespondojnë me çdo derë, tani në
+        çdo nga 4 anët e dhomës (jo vetëm murin e sipërm).
+        """
         sources = []
         half = exit_width / 2
-        row = 0
-        for (ex, ey) in exits:
-            col0 = max(0, int((ex - half) // self.cell_size))
-            col1 = min(self.cols - 1, int((ex + half) // self.cell_size))
-            for col in range(col0, col1 + 1):
-                if not self.blocked[row, col]:
-                    sources.append((row, col))
+
+        for (side, pos) in exit_specs:
+            if side == "top":
+                row = 0
+                col0 = max(0, int((pos - half) // self.cell_size))
+                col1 = min(self.cols - 1, int((pos + half) // self.cell_size))
+                for col in range(col0, col1 + 1):
+                    if not self.blocked[row, col]:
+                        sources.append((row, col))
+
+            elif side == "bottom":
+                row = self.rows - 1
+                col0 = max(0, int((pos - half) // self.cell_size))
+                col1 = min(self.cols - 1, int((pos + half) // self.cell_size))
+                for col in range(col0, col1 + 1):
+                    if not self.blocked[row, col]:
+                        sources.append((row, col))
+
+            elif side == "left":
+                col = 0
+                row0 = max(0, int((pos - half) // self.cell_size))
+                row1 = min(self.rows - 1, int((pos + half) // self.cell_size))
+                for row in range(row0, row1 + 1):
+                    if not self.blocked[row, col]:
+                        sources.append((row, col))
+
+            elif side == "right":
+                col = self.cols - 1
+                row0 = max(0, int((pos - half) // self.cell_size))
+                row1 = min(self.rows - 1, int((pos + half) // self.cell_size))
+                for row in range(row0, row1 + 1):
+                    if not self.blocked[row, col]:
+                        sources.append((row, col))
+
         return sources
 
     def _neighbors(self, row, col):
