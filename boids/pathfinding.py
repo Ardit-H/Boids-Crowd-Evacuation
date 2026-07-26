@@ -16,12 +16,15 @@ class FlowField:
 
     def __init__(self, width, height, obstacles, exit_specs, exit_width,
                  cell_size=20, blocked_inflate=8.0,
-                 wall_avoid_radius=40.0, wall_penalty_weight=3.0):
+                 wall_avoid_radius=40.0, wall_penalty_weight=3.0,
+                 circle_obstacles=None):
         self.cell_size = cell_size
         self.cols = int(np.ceil(width / cell_size))
         self.rows = int(np.ceil(height / cell_size))
 
-        self.blocked = self._build_blocked_grid(obstacles, blocked_inflate)
+        circle_obstacles = circle_obstacles if circle_obstacles is not None else []
+        self.blocked = self._build_blocked_grid(obstacles, blocked_inflate,
+                                                 circle_obstacles)
         self.wall_distance = self._compute_wall_distance()
 
         self.wall_avoid_radius = wall_avoid_radius
@@ -31,8 +34,9 @@ class FlowField:
         self.distance = self._weighted_dijkstra(source_cells)
         self.direction = self._compute_directions()
 
-    def _build_blocked_grid(self, obstacles, inflate):
+    def _build_blocked_grid(self, obstacles, inflate, circle_obstacles):
         blocked = np.zeros((self.rows, self.cols), dtype=bool)
+
         for (ox, oy, ow, oh) in obstacles:
             x0, y0 = ox - inflate, oy - inflate
             x1, y1 = ox + ow + inflate, oy + oh + inflate
@@ -41,6 +45,24 @@ class FlowField:
             row0 = max(0, int(y0 // self.cell_size))
             row1 = min(self.rows - 1, int(y1 // self.cell_size))
             blocked[row0:row1 + 1, col0:col1 + 1] = True
+
+        # Rasterizon pengesat rrethore në grid - shënon si "e bllokuar"
+        # çdo qelizë brenda (rreze + inflate) nga qendra e rrethit
+        for (cx, cy, radius) in circle_obstacles:
+            r = radius + inflate
+            col0 = max(0, int((cx - r) // self.cell_size))
+            col1 = min(self.cols - 1, int((cx + r) // self.cell_size))
+            row0 = max(0, int((cy - r) // self.cell_size))
+            row1 = min(self.rows - 1, int((cy + r) // self.cell_size))
+
+            for row in range(row0, row1 + 1):
+                for col in range(col0, col1 + 1):
+                    cell_x = (col + 0.5) * self.cell_size
+                    cell_y = (row + 0.5) * self.cell_size
+                    dist = np.sqrt((cell_x - cx) ** 2 + (cell_y - cy) ** 2)
+                    if dist < r:
+                        blocked[row, col] = True
+
         return blocked
 
     def _find_exit_cells(self, exit_specs, exit_width):
