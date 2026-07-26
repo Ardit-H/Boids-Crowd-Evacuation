@@ -11,26 +11,22 @@ os.makedirs(RESULTS_DIR, exist_ok=True)
 from boids.simulation import Simulation
 from analysis.metrics import print_summary, plot_evacuation_histogram
 
-# --- Konfigurimi bazë i dritares ---
 SIM_WIDTH, SIM_HEIGHT = 900, 700
 PANEL_WIDTH = 260
 WIDTH, HEIGHT = SIM_WIDTH + PANEL_WIDTH, SIM_HEIGHT
 FPS = 60
 
-# Ngjyrat (RGB)
 BACKGROUND_COLOR = (20, 20, 30)
 PANEL_COLOR = (35, 35, 48)
 BOID_COLOR = (100, 200, 255)
 EXIT_COLOR = (80, 220, 100)
 OBSTACLE_COLOR = (200, 80, 80)
+PREVIEW_COLOR = (200, 80, 80, 120)
 BUTTON_COLOR = (60, 60, 80)
 BUTTON_HOVER_COLOR = (80, 80, 105)
 BUTTON_SELECTED_COLOR = (70, 130, 180)
+MODE_ACTIVE_COLOR = (200, 150, 60)
 TEXT_COLOR = (230, 230, 230)
-
-# Pengesa fikse (e njëjta si në versionin origjinal), përdoret vetëm
-# kur përdoruesi zgjedh "Me pengesë" te paneli
-DEFAULT_OBSTACLE = [(SIM_WIDTH / 2 - 40, 150, 80, 40)]
 
 
 class Button:
@@ -40,8 +36,10 @@ class Button:
         self.value = value
         self.selected = False
 
-    def draw(self, screen, font, mouse_pos):
-        if self.selected:
+    def draw(self, screen, font, mouse_pos, color_override=None):
+        if color_override:
+            color = color_override
+        elif self.selected:
             color = BUTTON_SELECTED_COLOR
         elif self.rect.collidepoint(mouse_pos):
             color = BUTTON_HOVER_COLOR
@@ -57,10 +55,8 @@ class Button:
 
 
 def make_button_group(x, y_start, w, h, gap, items):
-    buttons = []
-    for i, (label, value) in enumerate(items):
-        buttons.append(Button(x, y_start + i * (h + gap), w, h, label, value))
-    return buttons
+    return [Button(x, y_start + i * (h + gap), w, h, label, value)
+            for i, (label, value) in enumerate(items)]
 
 
 def draw_boid(screen, boid, size=6):
@@ -74,40 +70,15 @@ def draw_boid(screen, boid, size=6):
     pygame.draw.polygon(screen, BOID_COLOR, rotated_points)
 
 
-def draw_exits(screen, environment, thickness=6):
-    """
-    Vizaton daljet me gjerësinë REALE (environment.exit_width) - jo
-    një vlerë fikse - kështu vija jeshile përkon saktësisht me zonën
-    ku boid-et realisht mund të kalojnë, pa krijuar përshtypjen e
-    gabuar se dera është më e gjerë se ç'është funksionalisht.
-    """
-    for exit_pos in environment.exits:
-        x, y = exit_pos
-        half_width = environment.exit_width / 2
-        start = (x - half_width, y)
-        end = (x + half_width, y)
-        pygame.draw.line(screen, EXIT_COLOR, start, end, thickness)
+def draw_exits_from_list(screen, exits, exit_width, thickness=6):
+    for (x, y) in exits:
+        half_width = exit_width / 2
+        pygame.draw.line(screen, EXIT_COLOR, (x - half_width, y), (x + half_width, y), thickness)
 
 
-def draw_obstacles(screen, environment):
-    for (ox, oy, ow, oh) in environment.obstacles:
+def draw_obstacles_from_list(screen, obstacles):
+    for (ox, oy, ow, oh) in obstacles:
         pygame.draw.rect(screen, OBSTACLE_COLOR, (ox, oy, ow, oh))
-
-
-def build_exits(num_doors, width):
-    if num_doors == 1:
-        return [(width / 2, 0)]
-    elif num_doors == 2:
-        return [(width / 4, 0), (3 * width / 4, 0)]
-    else:
-        return [(width / 5, 0), (width / 2, 0), (4 * width / 5, 0)]
-
-
-def create_simulation(num_boids, num_doors, exit_width, use_obstacle):
-    exits = build_exits(num_doors, SIM_WIDTH)
-    obstacles = DEFAULT_OBSTACLE if use_obstacle else []
-    return Simulation(num_boids, SIM_WIDTH, SIM_HEIGHT, exits,
-                       obstacles=obstacles, exit_width=exit_width)
 
 
 def main():
@@ -116,38 +87,41 @@ def main():
     pygame.display.set_caption("Boids Crowd Simulation")
     clock = pygame.time.Clock()
     font = pygame.font.SysFont("Arial", 15)
+    small_font = pygame.font.SysFont("Arial", 12)
     title_font = pygame.font.SysFont("Arial", 17, bold=True)
 
-    # --- Gjendja aktuale e zgjedhur (default) ---
-    selected_doors = 1
+    # --- Gjendja e konfigurimit ---
     selected_width = 15.0
     selected_density = 80
-    selected_obstacle = False
+    custom_exits = [(SIM_WIDTH / 2, 0)]       # default: 1 derë në mes
+    custom_obstacles = []                      # default: pa pengesa
 
-    # --- Krijo grupet e butonave brenda panelit ---
+    # --- Mënyra e vendosjes (placement mode) ---
+    # None = normal (kontrollon simulimin), "door" = vendos dyer,
+    # "obstacle" = vendos pengesa (drag për madhësi)
+    placement_mode = None
+    dragging_from = None  # pika e fillimit të drag-ut për pengesë
+
     px = SIM_WIDTH + 20
-    bw, bh, gap = PANEL_WIDTH - 40, 30, 8
+    bw, bh, gap = PANEL_WIDTH - 40, 28, 6
 
-    door_buttons = make_button_group(px, 55, bw, bh, gap,
-        [("1 Derë", 1), ("2 Dyer", 2), ("3 Dyer", 3)])
-    door_buttons[0].selected = True
-
-    width_buttons = make_button_group(px, 205, bw, bh, gap,
+    width_buttons = make_button_group(px, 30, bw, bh, gap,
         [("E ngushtë (15px)", 15.0), ("Mesatare (30px)", 30.0), ("E gjerë (60px)", 60.0)])
     width_buttons[0].selected = True
 
-    density_buttons = make_button_group(px, 355, bw, bh, gap,
+    density_buttons = make_button_group(px, 165, bw, bh, gap,
         [("40 boid (ulët)", 40), ("80 boid (mesatar)", 80), ("150 boid (lartë)", 150)])
     density_buttons[1].selected = True
 
-    obstacle_buttons = make_button_group(px, 505, bw, bh, gap,
-        [("Pa pengesë", False), ("Me pengesë", True)])
-    obstacle_buttons[0].selected = True
+    door_mode_btn = Button(px, 300, bw, 34, "🚪 Vendos Dyer (klikim)", "door")
+    obstacle_mode_btn = Button(px, 340, bw, 34, "▦ Vendos Pengesa (zvarrit)", "obstacle")
+    clear_doors_btn = Button(px, 385, bw, 28, "Pastro Dyert", "clear_doors")
+    clear_obstacles_btn = Button(px, 418, bw, 28, "Pastro Pengesat", "clear_obstacles")
 
-    start_button = Button(px, 600, bw, 40, "▶  Fillo Simulimin", None)
-    graph_button = Button(px, 650, bw, 40, "📊  Shfaq Grafikun", None)
+    start_button = Button(px, 470, bw, 40, "▶  Fillo Simulimin", None)
+    graph_button = Button(px, 520, bw, 40, "📊  Shfaq Grafikun", None)
 
-    all_groups = [door_buttons, width_buttons, density_buttons, obstacle_buttons]
+    selection_groups = [width_buttons, density_buttons]
 
     simulation = None
     running_sim = False
@@ -156,46 +130,72 @@ def main():
     running = True
     while running:
         mouse_pos = pygame.mouse.get_pos()
+        in_sim_area = mouse_pos[0] < SIM_WIDTH and mouse_pos[1] < SIM_HEIGHT
 
         for event in pygame.event.get():
             if event.type == pygame.QUIT:
                 running = False
 
             if event.type == pygame.MOUSEBUTTONDOWN:
-                for group in all_groups:
-                    for btn in group:
-                        if btn.is_clicked(mouse_pos):
-                            for other in group:
-                                other.selected = False
-                            btn.selected = True
+                # --- Klikime brenda zonës së simulimit (placement) ---
+                if in_sim_area and placement_mode == "door":
+                    new_x = max(selected_width / 2,
+                                min(SIM_WIDTH - selected_width / 2, mouse_pos[0]))
+                    custom_exits.append((new_x, 0))
 
-                for btn in door_buttons:
-                    if btn.selected:
-                        selected_doors = btn.value
-                for btn in width_buttons:
-                    if btn.selected:
-                        selected_width = btn.value
-                for btn in density_buttons:
-                    if btn.selected:
-                        selected_density = btn.value
-                for btn in obstacle_buttons:
-                    if btn.selected:
-                        selected_obstacle = btn.value
+                elif in_sim_area and placement_mode == "obstacle":
+                    dragging_from = mouse_pos
 
-                if start_button.is_clicked(mouse_pos):
-                    simulation = create_simulation(selected_density, selected_doors,
-                                                    selected_width, selected_obstacle)
-                    running_sim = True
-                    stats_printed = False
+                elif not in_sim_area:
+                    # --- Klikime te paneli (butona) ---
+                    for group in selection_groups:
+                        for btn in group:
+                            if btn.is_clicked(mouse_pos):
+                                for other in group:
+                                    other.selected = False
+                                btn.selected = True
 
-                if graph_button.is_clicked(mouse_pos) and simulation is not None \
-                        and simulation.is_finished():
-                    histogram_path = os.path.join(RESULTS_DIR, "evacuation_histogram.png")
-                    plot_evacuation_histogram(simulation.evacuation_times,
-                                              save_path=histogram_path)
+                    for btn in width_buttons:
+                        if btn.selected:
+                            selected_width = btn.value
+                    for btn in density_buttons:
+                        if btn.selected:
+                            selected_density = btn.value
 
-        # --- Përditëso simulimin ---
-        if running_sim and simulation is not None:
+                    if door_mode_btn.is_clicked(mouse_pos):
+                        placement_mode = None if placement_mode == "door" else "door"
+                    if obstacle_mode_btn.is_clicked(mouse_pos):
+                        placement_mode = None if placement_mode == "obstacle" else "obstacle"
+                    if clear_doors_btn.is_clicked(mouse_pos):
+                        custom_exits = []
+                    if clear_obstacles_btn.is_clicked(mouse_pos):
+                        custom_obstacles = []
+
+                    if start_button.is_clicked(mouse_pos) and len(custom_exits) > 0:
+                        simulation = Simulation(selected_density, SIM_WIDTH, SIM_HEIGHT,
+                                                 custom_exits, obstacles=custom_obstacles,
+                                                 exit_width=selected_width)
+                        running_sim = True
+                        stats_printed = False
+
+                    if graph_button.is_clicked(mouse_pos) and simulation is not None \
+                            and simulation.is_finished():
+                        histogram_path = os.path.join(RESULTS_DIR, "evacuation_histogram.png")
+                        plot_evacuation_histogram(simulation.evacuation_times,
+                                                   save_path=histogram_path)
+
+            if event.type == pygame.MOUSEBUTTONUP:
+                if dragging_from is not None and in_sim_area:
+                    x1, y1 = dragging_from
+                    x2, y2 = mouse_pos
+                    ox, oy = min(x1, x2), min(y1, y2)
+                    ow, oh = abs(x2 - x1), abs(y2 - y1)
+                    if ow > 5 and oh > 5:
+                        custom_obstacles.append((ox, oy, ow, oh))
+                dragging_from = None
+
+        # --- Përditëso simulimin (vetëm jashtë placement mode) ---
+        if running_sim and simulation is not None and placement_mode is None:
             if not simulation.is_finished():
                 simulation.step()
             else:
@@ -208,41 +208,63 @@ def main():
         screen.fill(BACKGROUND_COLOR)
 
         if simulation is not None:
-            draw_exits(screen, simulation.environment)
-            draw_obstacles(screen, simulation.environment)
+            draw_exits_from_list(screen, [tuple(e) for e in simulation.environment.exits],
+                                  simulation.environment.exit_width)
+            draw_obstacles_from_list(screen, simulation.environment.obstacles)
             for boid in simulation.boids:
                 draw_boid(screen, boid)
+        else:
+            draw_exits_from_list(screen, custom_exits, selected_width)
+            draw_obstacles_from_list(screen, custom_obstacles)
+
+        # Preview i pengesës gjatë "drag"
+        if dragging_from is not None:
+            x1, y1 = dragging_from
+            x2, y2 = mouse_pos
+            ox, oy = min(x1, x2), min(y1, y2)
+            ow, oh = abs(x2 - x1), abs(y2 - y1)
+            preview_surface = pygame.Surface((max(ow, 1), max(oh, 1)), pygame.SRCALPHA)
+            preview_surface.fill((200, 80, 80, 120))
+            screen.blit(preview_surface, (ox, oy))
 
         pygame.draw.rect(screen, PANEL_COLOR, (SIM_WIDTH, 0, PANEL_WIDTH, HEIGHT))
 
-        screen.blit(title_font.render("Numri i Dyerve", True, TEXT_COLOR), (px, 25))
-        for btn in door_buttons:
-            btn.draw(screen, font, mouse_pos)
-
-        screen.blit(title_font.render("Gjerësia e Derës", True, TEXT_COLOR), (px, 175))
+        screen.blit(title_font.render("Gjerësia e Derës", True, TEXT_COLOR), (px, 5))
         for btn in width_buttons:
             btn.draw(screen, font, mouse_pos)
 
-        screen.blit(title_font.render("Densiteti (Boid-e)", True, TEXT_COLOR), (px, 325))
+        screen.blit(title_font.render("Densiteti (Boid-e)", True, TEXT_COLOR), (px, 140))
         for btn in density_buttons:
             btn.draw(screen, font, mouse_pos)
 
-        screen.blit(title_font.render("Pengesa", True, TEXT_COLOR), (px, 475))
-        for btn in obstacle_buttons:
-            btn.draw(screen, font, mouse_pos)
+        door_mode_btn.draw(screen, small_font, mouse_pos,
+                            MODE_ACTIVE_COLOR if placement_mode == "door" else None)
+        obstacle_mode_btn.draw(screen, small_font, mouse_pos,
+                                MODE_ACTIVE_COLOR if placement_mode == "obstacle" else None)
+        clear_doors_btn.draw(screen, small_font, mouse_pos)
+        clear_obstacles_btn.draw(screen, small_font, mouse_pos)
 
         start_button.draw(screen, font, mouse_pos)
-
         if simulation is not None and simulation.is_finished():
             graph_button.draw(screen, font, mouse_pos)
+
+        info_y = 570
+        screen.blit(small_font.render(f"Dyer: {len(custom_exits)}", True, TEXT_COLOR), (px, info_y))
+        screen.blit(small_font.render(f"Pengesa: {len(custom_obstacles)}", True, TEXT_COLOR), (px, info_y + 20))
+
+        if placement_mode == "door":
+            hint = small_font.render("Klikoni mbi hapësirën për derë", True, MODE_ACTIVE_COLOR)
+            screen.blit(hint, (px, info_y + 45))
+        elif placement_mode == "obstacle":
+            hint = small_font.render("Zvarritni për pengesë", True, MODE_ACTIVE_COLOR)
+            screen.blit(hint, (px, info_y + 45))
 
         if simulation is not None:
             remaining = len(simulation.boids)
             status_text = f"Aktivë: {remaining}   Koha: {simulation.time_elapsed}"
-            screen.blit(font.render(status_text, True, TEXT_COLOR), (px, 705))
-
+            screen.blit(font.render(status_text, True, TEXT_COLOR), (px, 660))
             if simulation.is_finished():
-                screen.blit(font.render("✓ Evakuimi përfundoi!", True, EXIT_COLOR), (px, 728))
+                screen.blit(font.render("✓ Evakuimi përfundoi!", True, EXIT_COLOR), (px, 682))
 
         pygame.display.flip()
         clock.tick(FPS)
