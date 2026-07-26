@@ -9,7 +9,7 @@ class Simulation:
     """
 
     def __init__(self, num_boids, width, height, exits, obstacles=None,
-                 exit_width=15.0,
+                 exit_width=15.0, circle_obstacles=None,
                  separation_weight=1.5,
                  alignment_weight=1.0,
                  cohesion_weight=1.0,
@@ -18,8 +18,8 @@ class Simulation:
         self.width = width
         self.height = height
 
-        self.environment = Environment(width, height, exits, obstacles, exit_width)
-
+        self.environment = Environment(width, height, exits, obstacles, exit_width,
+                                       circle_obstacles=circle_obstacles)
         self.separation_weight = separation_weight
         self.alignment_weight = alignment_weight
         self.cohesion_weight = cohesion_weight
@@ -58,6 +58,12 @@ class Simulation:
             if (ox - padding) < x < (ox + ow + padding) and \
                     (oy - padding) < y < (oy + oh + padding):
                 return True
+
+        for (cx, cy, radius) in self.environment.circle_obstacles:
+            dist = np.sqrt((x - cx) ** 2 + (y - cy) ** 2)
+            if dist < radius + padding:
+                return True
+
         return False
 
     def get_neighbors(self, boid, radius=50.0):
