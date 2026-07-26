@@ -63,21 +63,23 @@ class Environment:
 
     def has_reached_exit(self, position):
         """
-        Kontrollon nëse pozicioni ka arritur te ndonjë dalje, tani në
-        çdo nga 4 anët - kontrollon perpendikularisht ndaj murit
-        përkatës të secilës derë.
+        Kontrollon nëse pozicioni ka arritur te ndonjë dalje. Buffer-i
+        prej 10px (jo 20px si më parë) e bën evakuimin të duket më
+        pranë vijës vizuale të derës - kjo tani është e sigurt pa
+        krijuar 'overshoot' të dukshëm, sepse seek_exit ngadalëson
+        boid-in ndërsa afrohet (arrival behavior).
         """
         x, y = position
-        half = self.exit_width / 2 + 10
+        half = self.exit_width / 2 + 6
 
         for (side, pos) in self.exit_specs:
-            if side == "top" and abs(x - pos) < half and y < 20:
+            if side == "top" and abs(x - pos) < half and y < 10:
                 return True
-            elif side == "bottom" and abs(x - pos) < half and y > self.height - 20:
+            elif side == "bottom" and abs(x - pos) < half and y > self.height - 10:
                 return True
-            elif side == "left" and abs(y - pos) < half and x < 20:
+            elif side == "left" and abs(y - pos) < half and x < 10:
                 return True
-            elif side == "right" and abs(y - pos) < half and x > self.width - 20:
+            elif side == "right" and abs(y - pos) < half and x > self.width - 10:
                 return True
         return False
 
