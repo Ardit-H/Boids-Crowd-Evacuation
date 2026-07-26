@@ -70,10 +70,51 @@ def draw_boid(screen, boid, size=6):
     pygame.draw.polygon(screen, BOID_COLOR, rotated_points)
 
 
-def draw_exits_from_list(screen, exits, exit_width, thickness=6):
-    for (x, y) in exits:
-        half_width = exit_width / 2
-        pygame.draw.line(screen, EXIT_COLOR, (x - half_width, y), (x + half_width, y), thickness)
+def exit_spec_to_point(side, pos, width, height):
+    if side == "top":
+        return (pos, 0.0)
+    elif side == "bottom":
+        return (pos, height)
+    elif side == "left":
+        return (0.0, pos)
+    else:
+        return (width, pos)
+
+
+def draw_exits_from_specs(screen, exit_specs, exit_width, sim_width, sim_height, thickness=6):
+    """Vizaton daljet duke përshtatur orientimin (horizontal/vertikal) sipas anës."""
+    half = exit_width / 2
+    for (side, pos) in exit_specs:
+        if side in ("top", "bottom"):
+            y = 0 if side == "top" else sim_height
+            pygame.draw.line(screen, EXIT_COLOR, (pos - half, y), (pos + half, y), thickness)
+        else:
+            x = 0 if side == "left" else sim_width
+            pygame.draw.line(screen, EXIT_COLOR, (x, pos - half), (x, pos + half), thickness)
+
+
+def determine_wall_side(mouse_pos, sim_width, sim_height, edge_margin=30):
+    """
+    Përcakton në cilin nga 4 muret ka klikuar përdoruesi (bazuar te
+    ana më e afërt), dhe kthen (side, pos) - None nëse klikimi është
+    shumë larg nga çdo mur.
+    """
+    x, y = mouse_pos
+    dist_top, dist_bottom = y, sim_height - y
+    dist_left, dist_right = x, sim_width - x
+    min_dist = min(dist_top, dist_bottom, dist_left, dist_right)
+
+    if min_dist > edge_margin:
+        return None
+
+    if min_dist == dist_top:
+        return ("top", x)
+    elif min_dist == dist_bottom:
+        return ("bottom", x)
+    elif min_dist == dist_left:
+        return ("left", y)
+    else:
+        return ("right", y)
 
 
 def draw_obstacles_from_list(screen, obstacles):
@@ -93,7 +134,7 @@ def main():
     # --- Gjendja e konfigurimit ---
     selected_width = 15.0
     selected_density = 80
-    custom_exits = [(SIM_WIDTH / 2, 0)]       # default: 1 derë në mes
+    custom_exits = [("top", SIM_WIDTH / 2)]   # default: 1 derë në mes të murit sipër
     custom_obstacles = []                      # default: pa pengesa
 
     # --- Mënyra e vendosjes (placement mode) ---
@@ -139,9 +180,9 @@ def main():
             if event.type == pygame.MOUSEBUTTONDOWN:
                 # --- Klikime brenda zonës së simulimit (placement) ---
                 if in_sim_area and placement_mode == "door":
-                    new_x = max(selected_width / 2,
-                                min(SIM_WIDTH - selected_width / 2, mouse_pos[0]))
-                    custom_exits.append((new_x, 0))
+                    result = determine_wall_side(mouse_pos, SIM_WIDTH, SIM_HEIGHT)
+                    if result is not None:
+                        custom_exits.append(result)
 
                 elif in_sim_area and placement_mode == "obstacle":
                     dragging_from = mouse_pos
@@ -208,13 +249,13 @@ def main():
         screen.fill(BACKGROUND_COLOR)
 
         if simulation is not None:
-            draw_exits_from_list(screen, [tuple(e) for e in simulation.environment.exits],
-                                  simulation.environment.exit_width)
+            draw_exits_from_specs(screen, simulation.environment.exit_specs,
+                                  simulation.environment.exit_width, SIM_WIDTH, SIM_HEIGHT)
             draw_obstacles_from_list(screen, simulation.environment.obstacles)
             for boid in simulation.boids:
                 draw_boid(screen, boid)
         else:
-            draw_exits_from_list(screen, custom_exits, selected_width)
+            draw_exits_from_specs(screen, custom_exits, selected_width, SIM_WIDTH, SIM_HEIGHT)
             draw_obstacles_from_list(screen, custom_obstacles)
 
         # Preview i pengesës gjatë "drag"
