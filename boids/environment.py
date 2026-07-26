@@ -1,5 +1,5 @@
 import numpy as np
-
+from boids.pathfinding import FlowField
 
 class Environment:
     """
@@ -18,6 +18,15 @@ class Environment:
         # derës. Vlerë më e madhe = derë më e gjerë = evakuim potencialisht
         # më i shpejtë (më lehtë të arrihet, më pak grumbullim te pika qendrore)
         self.exit_width = exit_width
+        # Ndërton hartën e rrjedhës (flow field) një herë të vetme, bazuar
+        # te gjeometria aktuale (pengesat/dyert) - që çdo boid ta lexojë
+        # drejtimin optimal shumë shpejt, pa rillogaritje A*/Dijkstra çdo frame
+        # inflate=45 (pak më shumë se avoid_radius=40 i obstacle_avoidance_force)
+        # siguron që flow field E DIN paraprakisht për zonën "e rrezikshme"
+        # fizike rreth pengesave, dhe kurrë s'e drejton boid-in nëpër atë
+        # korridor të ngushtë ku forca fizike do ta kundërshtonte - kjo
+        # eliminon konfliktin mes pathfinding dhe fizikës pranë qoshet.
+        self.flow_field = FlowField(width, height, self.obstacles, exits, exit_width)
 
     def nearest_exit(self, position):
         """
@@ -27,6 +36,17 @@ class Environment:
         distances = [np.linalg.norm(position - exit_pos) for exit_pos in self.exits]
         nearest_index = np.argmin(distances)
         return self.exits[nearest_index]
+
+    def get_next_waypoint(self, position):
+        """
+        Kthen waypoint-in e ardhshëm duke ndjekur flow field hap-pas-hapi
+        (jo ekstrapolim linear i vetëm), që respekton saktë formën e
+        pengesave edhe pranë qosheve konkave.
+        """
+        waypoint = self.flow_field.get_waypoint(position, steps=3)
+        if waypoint is None:
+            return self.nearest_exit(position)
+        return waypoint
 
     def distance_to_nearest_exit(self, position):
         """Distanca deri te dalja më e afërt (përdoret për matje evakuimi)."""
