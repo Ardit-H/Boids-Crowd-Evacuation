@@ -85,18 +85,26 @@ class Boid:
 
         return np.zeros(2)
 
-    def seek_exit(self, exit_position):
+    def seek_exit(self, exit_position, slow_radius=18.0, min_speed_ratio=0.6):
         """
-        Rregull shtesë (specifik për evakuim): tërhiqet drejt pikës së daljes.
-        Ky është 'goal-seeking behavior' - ndryshe nga separation/alignment/
-        cohesion, kjo forcë e drejton agjentin drejt një qëllimi specifik,
-        jo thjesht ndaj sjelljes së fqinjëve.
+        Tërhiqet drejt pikës së daljes, me ngadalësim gradual pranë
+        qëllimit ('arrival behavior') që parandalon overshoot. Ka një
+        'dysheme' minimale shpejtësie (min_speed_ratio) - kështu forca
+        drejt derës MOS bëhet kurrë aq e dobët sa të mposhtet lehtësisht
+        nga separation/cohesion e boid-eve të tjerë të grumbulluar pranë
+        derës, gjë që do të shkaktonte lëkundje/rrotullim pikërisht atje.
         """
         desired = exit_position - self.position
         distance = np.linalg.norm(desired)
 
         if distance > 0:
-            desired = (desired / distance) * self.max_speed
+            if distance < slow_radius:
+                ratio = max(min_speed_ratio, distance / slow_radius)
+                speed = self.max_speed * ratio
+            else:
+                speed = self.max_speed
+
+            desired = (desired / distance) * speed
             steer = desired - self.velocity
             return steer
 
