@@ -122,6 +122,19 @@ def draw_obstacles_from_list(screen, obstacles):
         pygame.draw.rect(screen, OBSTACLE_COLOR, (ox, oy, ow, oh))
 
 
+def sync_from_simulation_if_active(simulation, custom_exits, custom_obstacles):
+    """
+    Nëse ka simulim aktiv dhe përdoruesi don të redaktojë (dyer/pengesa/
+    pastrim), 'kthen' gjendjen e redaktueshme nga simulimi aktual dhe e
+    ndalon atë - kështu butonat e redaktimit funksionojnë gjithmonë,
+    edhe pasi ka filluar një simulim.
+    """
+    if simulation is not None:
+        custom_exits[:] = list(simulation.environment.exit_specs)
+        custom_obstacles[:] = list(simulation.environment.obstacles)
+        return None, False
+    return simulation, None
+
 def main():
     pygame.init()
     screen = pygame.display.set_mode((WIDTH, HEIGHT))
@@ -204,12 +217,20 @@ def main():
                             selected_density = btn.value
 
                     if door_mode_btn.is_clicked(mouse_pos):
+                        simulation, running_sim = sync_from_simulation_if_active(
+                            simulation, custom_exits, custom_obstacles)
                         placement_mode = None if placement_mode == "door" else "door"
                     if obstacle_mode_btn.is_clicked(mouse_pos):
+                        simulation, running_sim = sync_from_simulation_if_active(
+                            simulation, custom_exits, custom_obstacles)
                         placement_mode = None if placement_mode == "obstacle" else "obstacle"
                     if clear_doors_btn.is_clicked(mouse_pos):
+                        simulation, running_sim = sync_from_simulation_if_active(
+                            simulation, custom_exits, custom_obstacles)
                         custom_exits = []
                     if clear_obstacles_btn.is_clicked(mouse_pos):
+                        simulation, running_sim = sync_from_simulation_if_active(
+                            simulation, custom_exits, custom_obstacles)
                         custom_obstacles = []
 
                     if start_button.is_clicked(mouse_pos) and len(custom_exits) > 0:
