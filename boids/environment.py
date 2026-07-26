@@ -19,10 +19,12 @@ class Environment:
     (dyert - tani në çdo nga 4 anët) dhe pengesat brenda saj.
     """
 
-    def __init__(self, width, height, exits, obstacles=None, exit_width=15.0):
+    def __init__(self, width, height, exits, obstacles=None, exit_width=15.0,
+                 circle_obstacles=None):
         self.width = width
         self.height = height
         self.obstacles = obstacles if obstacles is not None else []
+        self.circle_obstacles = circle_obstacles if circle_obstacles is not None else []
         self.exit_width = exit_width
 
         # Normalizon çdo dalje në format (side, pos) - mban pajtueshmëri
@@ -44,7 +46,8 @@ class Environment:
         ]
 
         self.flow_field = FlowField(width, height, self.obstacles,
-                                     self.exit_specs, exit_width)
+                                    self.exit_specs, exit_width,
+                                    circle_obstacles=self.circle_obstacles)
 
     def nearest_exit(self, position):
         distances = [np.linalg.norm(position - exit_pos) for exit_pos in self.exits]
@@ -85,6 +88,7 @@ class Environment:
 
     def obstacle_avoidance_force(self, position, avoid_radius=40.0):
         steer = np.zeros(2)
+
         for (ox, oy, ow, oh) in self.obstacles:
             closest_x = np.clip(position[0], ox, ox + ow)
             closest_y = np.clip(position[1], oy, oy + oh)
@@ -96,6 +100,24 @@ class Environment:
                     steer += (direction / distance) * (avoid_radius - distance) / avoid_radius
                 else:
                     steer += np.array([1.0, 0.0])
+
+        # Pengesat rrethore - pika më e afërt është gjithmonë në vetë
+        # rrethin (qendër + rreze në drejtim të pozicionit), ndryshe
+        # nga drejtkëndëshi ku pika më e afërt varet nga cepi/skaji
+        for (cx, cy, radius) in self.circle_obstacles:
+            center = np.array([cx, cy])
+            direction = position - center
+            dist_to_center = np.linalg.norm(direction)
+            dist_to_edge = dist_to_center - radius
+
+            if dist_to_edge < avoid_radius:
+                if dist_to_center > 0:
+                    unit_dir = direction / dist_to_center
+                    strength = max(0.0, (avoid_radius - dist_to_edge) / avoid_radius)
+                    steer += unit_dir * strength
+                else:
+                    steer += np.array([1.0, 0.0])
+
         return steer
 
     def resolve_collisions(self, boid):
@@ -129,6 +151,28 @@ class Environment:
                         boid.velocity[0] -= 2.0
                     else:
                         boid.velocity[0] += 2.0
+
+        # Kolizion i fortë me pengesa rrethore - nëse boid-i bie brenda
+        # rrezes, e nxjerr direkt përgjatë vijës qendër-boid (më e
+        # thjeshtë matematikisht se drejtkëndëshi, sepse rrethi ka
+        # simetri të plotë rrotative)
+        for (cx, cy, radius) in self.circle_obstacles:
+            center = np.array([cx, cy])
+            direction = boid.position - center
+            dist = np.linalg.norm(direction)
+
+            if dist < radius:
+                if dist > 0:
+                    unit_dir = direction / dist
+                else:
+                    unit_dir = np.array([1.0, 0.0])
+                    dist = 0.001
+
+                boid.position = center + unit_dir * (radius + 1)
+
+                radial_velocity = np.dot(boid.velocity, unit_dir)
+                if radial_velocity < 0:
+                    boid.velocity -= 2 * radial_velocity * unit_dir
 
     def enforce_boundaries(self, boid):
         """
