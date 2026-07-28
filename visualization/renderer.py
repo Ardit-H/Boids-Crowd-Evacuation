@@ -4,6 +4,7 @@ import sys
 import os
 import ctypes
 import ctypes.wintypes
+import pygame.gfxdraw
 
 sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), '..')))
 PROJECT_ROOT = os.path.abspath(os.path.join(os.path.dirname(__file__), '..'))
@@ -11,6 +12,7 @@ RESULTS_DIR = os.path.join(PROJECT_ROOT, "results")
 os.makedirs(RESULTS_DIR, exist_ok=True)
 
 from boids.simulation import Simulation
+from boids.polygon_simulation import PolygonSimulation
 from analysis.metrics import print_summary, plot_evacuation_histogram
 
 SIM_WIDTH, SIM_HEIGHT = 900, 700
@@ -22,6 +24,8 @@ BACKGROUND_COLOR = (20, 20, 30)
 PANEL_COLOR = (35, 35, 48)
 BOID_COLOR = (100, 200, 255)
 EXIT_COLOR = (80, 220, 100)
+WALL_COLOR = (230, 230, 230)
+WALL_PREVIEW_COLOR = (150, 150, 150)
 OBSTACLE_COLOR = (200, 80, 80)
 CIRCLE_OBSTACLE_COLOR = (200, 120, 80)
 PREVIEW_COLOR = (200, 80, 80, 120)
@@ -71,6 +75,41 @@ def draw_boid(screen, boid, size=6):
         ry = px * np.sin(angle) + py * np.cos(angle)
         rotated_points.append((boid.position[0] + rx, boid.position[1] + ry))
     pygame.draw.polygon(screen, BOID_COLOR, rotated_points)
+
+
+def draw_thick_line(screen, color, p1, p2, thickness=3):
+    """
+    Vizaton një vijë të trashë si poligon ME ANTI-ALIASING (pygame.
+    gfxdraw), sepse pygame.draw.polygon standarde nuk zbut skajet
+    (aliasing i dukshëm/efekt 'shkallë' në kënde diagonale, jo
+    problem i gjeometrisë vetë).
+    """
+    p1 = np.array(p1, dtype=float)
+    p2 = np.array(p2, dtype=float)
+    direction = p2 - p1
+    length = np.linalg.norm(direction)
+    if length == 0:
+        return
+    unit = direction / length
+    perp = np.array([-unit[1], unit[0]]) * (thickness / 2)
+
+    points = [
+        (int(round((p1 + perp)[0])), int(round((p1 + perp)[1]))),
+        (int(round((p2 + perp)[0])), int(round((p2 + perp)[1]))),
+        (int(round((p2 - perp)[0])), int(round((p2 - perp)[1]))),
+        (int(round((p1 - perp)[0])), int(round((p1 - perp)[1]))),
+    ]
+
+    pygame.gfxdraw.aapolygon(screen, points, color)
+    pygame.gfxdraw.filled_polygon(screen, points, color)
+
+
+def draw_thick_polyline(screen, color, points, thickness=3, closed=True):
+    """Vizaton një seri vijash të trasha (mur) duke përdorur draw_thick_line për çdo segment."""
+    n = len(points)
+    edges = n if closed else n - 1
+    for i in range(edges):
+        draw_thick_line(screen, color, points[i], points[(i + 1) % n], thickness)
 
 
 def exit_spec_to_point(side, pos, width, height):
@@ -184,6 +223,11 @@ def main():
     custom_exits = [("top", SIM_WIDTH / 2)]   # default: 1 derë në mes të murit sipër
     custom_obstacles = []                      # default: pa pengesa
     custom_circle_obstacles = []  # default: pa pengesa rrethore
+    # --- Gjendja për dhomë me formë të lirë (poligon) ---
+    wall_vertices = []  # pikat e klikuar për të ndërtuar poligonin
+    wall_doors = []  # (seg_idx, t_center, half_width)
+    use_custom_room = False  # nëse True, Fillo Simulimin përdor PolygonSimulation
+    room_closed = False  # nëse poligoni është mbyllur (kthyer te pika e parë)
 
     # --- Mënyra e vendosjes (placement mode) ---
     # None = normal (kontrollon simulimin), "door" = vendos dyer,
@@ -210,6 +254,11 @@ def main():
 
     start_button = Button(px, 490, bw, 38, "▶  Fillo Simulimin", None)
     graph_button = Button(px, 536, bw, 38, "📊  Shfaq Grafikun", None)
+
+    wall_mode_btn = Button(px, 582, bw, 28, "✏️ Vizato Mur (klikim)", "wall")
+    wall_door_mode_btn = Button(px, 612, bw, 28, "🚪 Dyer në Mur (klikim)", "wall_door")
+    clear_walls_btn = Button(px, 642, bw, 24, "Pastro Murin e Personalizuar", "clear_walls")
+
     selection_groups = [width_buttons, density_buttons]
 
     simulation = None
@@ -237,6 +286,34 @@ def main():
 
                 elif in_sim_area and placement_mode == "circle":
                     dragging_from = mouse_pos
+
+                elif in_sim_area and placement_mode == "wall" and not room_closed:
+                    if len(wall_vertices) >= 3 and \
+                            np.linalg.norm(np.array(mouse_pos) - np.array(wall_vertices[0])) < 15:
+                        room_closed = True
+                        use_custom_room = True
+                    else:
+                        wall_vertices.append(mouse_pos)
+
+                elif in_sim_area and placement_mode == "wall_door" and room_closed:
+                    n = len(wall_vertices)
+                    best_seg, best_dist, best_t = -1, np.inf, 0.0
+                    for i in range(n):
+                        a = np.array(wall_vertices[i])
+                        b = np.array(wall_vertices[(i + 1) % n])
+                        ab = b - a
+                        length_sq = np.dot(ab, ab)
+                        t = 0.0 if length_sq == 0 else \
+                            np.clip(np.dot(np.array(mouse_pos) - a, ab) / length_sq, 0.0, 1.0)
+                        closest = a + t * ab
+                        d = np.linalg.norm(np.array(mouse_pos) - closest)
+                        if d < best_dist:
+                            best_dist, best_seg, best_t = d, i, t
+                    if best_dist < 20:
+                        half_width_t = (selected_width / 2) / \
+                                       np.linalg.norm(np.array(wall_vertices[(best_seg + 1) % n]) -
+                                                      np.array(wall_vertices[best_seg]))
+                        wall_doors.append((best_seg, best_t, selected_width / 2))
 
                 elif not in_sim_area:
                     # --- Klikime te paneli (butona) ---
@@ -276,7 +353,16 @@ def main():
                         custom_obstacles = []
                         custom_circle_obstacles = []
 
-                    if start_button.is_clicked(mouse_pos) and len(custom_exits) > 0:
+                    if use_custom_room and room_closed and len(wall_doors) > 0:
+                        if start_button.is_clicked(mouse_pos):
+                            simulation = PolygonSimulation(
+                                selected_density, wall_vertices, wall_doors,
+                                obstacles=custom_obstacles,
+                                circle_obstacles=custom_circle_obstacles,
+                                exit_width=selected_width)
+                            running_sim = True
+                            stats_printed = False
+                    elif start_button.is_clicked(mouse_pos) and len(custom_exits) > 0:
                         simulation = Simulation(selected_density, SIM_WIDTH, SIM_HEIGHT,
                                                 custom_exits, obstacles=custom_obstacles,
                                                 exit_width=selected_width,
@@ -289,6 +375,22 @@ def main():
                         histogram_path = os.path.join(RESULTS_DIR, "evacuation_histogram.png")
                         plot_evacuation_histogram(simulation.evacuation_times,
                                                    save_path=histogram_path)
+                    if wall_mode_btn.is_clicked(mouse_pos):
+                        placement_mode = None if placement_mode == "wall" else "wall"
+                    if wall_door_mode_btn.is_clicked(mouse_pos):
+                        placement_mode = None if placement_mode == "wall_door" else "wall_door"
+                    if clear_walls_btn.is_clicked(mouse_pos):
+                        wall_vertices = []
+                        wall_doors = []
+                        use_custom_room = False
+                        room_closed = False
+                        # Nëse ka simulim aktiv me murin e personalizuar, fshije
+                        # gjithashtu - përndryshe vizatimi/logjika do të përpiqej
+                        # të përdorte wall_vertices (tani bosh) me seg_idx të
+                        # vjetër, duke shkaktuar IndexError
+                        if simulation is not None and isinstance(simulation, PolygonSimulation):
+                            simulation = None
+                            running_sim = False
 
             if event.type == pygame.MOUSEBUTTONUP:
                 if dragging_from is not None and in_sim_area:
@@ -321,7 +423,27 @@ def main():
         # --- Vizato ---
         screen.fill(BACKGROUND_COLOR)
 
-        if simulation is not None:
+        if simulation is not None and isinstance(simulation, PolygonSimulation):
+            draw_thick_polyline(screen, WALL_COLOR, wall_vertices, thickness=3, closed=True)
+            draw_obstacles_from_list(screen, simulation.room.obstacles)
+            draw_circle_obstacles_from_list(screen, simulation.room.circle_obstacles)
+
+            n = len(wall_vertices)
+            for (seg_idx, t_center, half_width) in simulation.room.doors:
+                a = np.array(wall_vertices[seg_idx])
+                b = np.array(wall_vertices[(seg_idx + 1) % n])
+                center = a + t_center * (b - a)
+                edge = b - a
+                edge_len = np.linalg.norm(edge)
+                if edge_len > 0:
+                    unit = edge / edge_len
+                    p1 = center - unit * half_width
+                    p2 = center + unit * half_width
+                    draw_thick_line(screen, EXIT_COLOR, p1, p2, thickness=6)
+
+            for boid in simulation.boids:
+                draw_boid(screen, boid)
+        elif simulation is not None:
             draw_exits_from_specs(screen, simulation.environment.exit_specs,
                                   simulation.environment.exit_width, SIM_WIDTH, SIM_HEIGHT)
             draw_obstacles_from_list(screen, simulation.environment.obstacles)
@@ -332,6 +454,28 @@ def main():
             draw_exits_from_specs(screen, custom_exits, selected_width, SIM_WIDTH, SIM_HEIGHT)
             draw_obstacles_from_list(screen, custom_obstacles)
             draw_circle_obstacles_from_list(screen, custom_circle_obstacles)
+
+            # Vizato murin e personalizuar gjatë ndërtimit
+            if len(wall_vertices) > 0:
+                if len(wall_vertices) > 1:
+                    draw_thick_polyline(screen, WALL_PREVIEW_COLOR, wall_vertices,
+                                        thickness=3, closed=room_closed)
+                for v in wall_vertices:
+                    pygame.draw.circle(screen, WALL_COLOR, v, 4)
+
+                if room_closed:
+                    n = len(wall_vertices)
+                    for (seg_idx, t_center, half_width) in wall_doors:
+                        a = np.array(wall_vertices[seg_idx])
+                        b = np.array(wall_vertices[(seg_idx + 1) % n])
+                        center = a + t_center * (b - a)
+                        edge = b - a
+                        edge_len = np.linalg.norm(edge)
+                        if edge_len > 0:
+                            unit = edge / edge_len
+                            p1 = center - unit * half_width
+                            p2 = center + unit * half_width
+                            draw_thick_line(screen, EXIT_COLOR, p1, p2, thickness=6)
 
         # Preview i pengesës gjatë "drag"
         if dragging_from is not None:
@@ -371,11 +515,17 @@ def main():
         clear_doors_btn.draw(screen, small_font, mouse_pos)
         clear_obstacles_btn.draw(screen, small_font, mouse_pos)
 
+        wall_mode_btn.draw(screen, small_font, mouse_pos,
+                           MODE_ACTIVE_COLOR if placement_mode == "wall" else None)
+        wall_door_mode_btn.draw(screen, small_font, mouse_pos,
+                                MODE_ACTIVE_COLOR if placement_mode == "wall_door" else None)
+        clear_walls_btn.draw(screen, small_font, mouse_pos)
+
         start_button.draw(screen, font, mouse_pos)
         if simulation is not None and simulation.is_finished():
             graph_button.draw(screen, font, mouse_pos)
 
-        info_y = 570
+        info_y = 690
         screen.blit(small_font.render(f"Dyer: {len(custom_exits)}", True, TEXT_COLOR), (px, info_y))
         screen.blit(small_font.render(f"Pengesa: {len(custom_obstacles)}", True, TEXT_COLOR), (px, info_y + 20))
 
@@ -389,7 +539,7 @@ def main():
         if simulation is not None:
             remaining = len(simulation.boids)
             status_text = f"Aktivë: {remaining}   Koha: {simulation.time_elapsed}"
-            screen.blit(font.render(status_text, True, TEXT_COLOR), (px, 660))
+            screen.blit(font.render(status_text, True, TEXT_COLOR), (px, 770))
             if simulation.is_finished():
                 screen.blit(font.render("✓ Evakuimi përfundoi!", True, EXIT_COLOR), (px, 682))
 
