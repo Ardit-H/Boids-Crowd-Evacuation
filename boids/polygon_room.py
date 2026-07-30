@@ -199,7 +199,7 @@ class PolygonRoom:
                     boid.velocity -= 2 * radial_velocity * unit_dir
 
     def distance_to_nearest_obstacle(self, position):
-        return self.flow_field.distance_to_nearest_obstacle(position)
+        return self.flow_field.distance_to_nearest_interior_obstacle(position)
 
 
 class PolygonFlowField:
@@ -384,3 +384,26 @@ class PolygonFlowField:
     def distance_to_nearest_obstacle(self, position):
         row, col = self._cell_of(position)
         return self.wall_distance[row, col]
+
+    def distance_to_nearest_interior_obstacle(self, position):
+        """
+        Njësoj si distance_to_nearest_obstacle, por mat vetëm distancën
+        nga pengesat e BRENDSHME (obstacles/circle_obstacles) - jo nga
+        vetë muret e poligonit - në mënyrë të njëjtë siç sillet
+        Environment (rasti me 4 mure), ku muret e jashtme s'llogariten
+        si "pengesë" për qëllime të cohesion dinamik.
+        """
+        x, y = position
+        min_dist = np.inf
+
+        for (ox, oy, ow, oh) in self.room.obstacles:
+            closest_x = np.clip(x, ox, ox + ow)
+            closest_y = np.clip(y, oy, oy + oh)
+            dist = np.sqrt((x - closest_x) ** 2 + (y - closest_y) ** 2)
+            min_dist = min(min_dist, dist)
+
+        for (cx, cy, radius) in self.room.circle_obstacles:
+            dist = np.sqrt((x - cx) ** 2 + (y - cy) ** 2) - radius
+            min_dist = min(min_dist, max(0.0, dist))
+
+        return min_dist
