@@ -9,18 +9,15 @@ class Boid:
     """
 
     def __init__(self, position, velocity, max_speed=4.0, max_force=0.1):
-        # Pozicioni aktual i agjentit në hapësirë (vektor 2D: [x, y])
         self.position = np.array(position, dtype=float)
-
-        # Shpejtësia aktuale (vektor 2D: [vx, vy])
         self.velocity = np.array(velocity, dtype=float)
-
-        # Shpejtësia maksimale e lejuar (kufizim realist - njeriu s'vrapon pafundësisht shpejt)
         self.max_speed = max_speed
-
-        # Forca maksimale që mund të aplikohet në një hap kohor
-        # (kufizon sa shpejt mund të ndryshojë drejtimin - "manovrueshmëria")
         self.max_force = max_force
+
+        # Gjendje për zbulimin e "ngërçit" (deadlock) - regjistron pozicionin
+        # çdo N frame dhe kontrollon nëse ka pasur lëvizje reale që atëherë
+        self.stuck_check_position = self.position.copy()
+        self.stuck_frame_counter = 0
 
     def separation(self, neighbors, desired_separation=25.0):
         """
@@ -123,3 +120,23 @@ class Boid:
             self.velocity = (self.velocity / speed) * self.max_speed
 
         self.position += self.velocity
+
+    def check_and_escape_if_stuck(self, stuck_frames_threshold=40, min_displacement=10.0):
+        """
+        Nëse boid-i s'ka lëvizur mjaftueshëm (min_displacement px) brenda
+        stuck_frames_threshold frame-ve të fundit, i jep një impuls
+        shpejtësie në drejtim RANDOM për ta zhbllokuar nga një ekuilibër
+        i ngërçuar forcash (rasti tipik: 2-3 boid të mbetur që orbitojnë
+        njëri-tjetrin pa avancuar kurrë drejt daljes).
+        """
+        self.stuck_frame_counter += 1
+
+        if self.stuck_frame_counter >= stuck_frames_threshold:
+            displacement = np.linalg.norm(self.position - self.stuck_check_position)
+
+            if displacement < min_displacement:
+                angle = np.random.uniform(0, 2 * np.pi)
+                self.velocity = np.array([np.cos(angle), np.sin(angle)]) * self.max_speed
+
+            self.stuck_check_position = self.position.copy()
+            self.stuck_frame_counter = 0
