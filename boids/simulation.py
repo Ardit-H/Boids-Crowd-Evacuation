@@ -12,7 +12,9 @@ class Simulation:
                  exit_width=15.0, circle_obstacles=None,
                  separation_weight=1.5,
                  alignment_weight=1.0,
-                 cohesion_weight=1.0,
+                 cohesion_weight_open=0.15,
+                 cohesion_weight_near_obstacle=1.0,
+                 obstacle_proximity_threshold=45.0,
                  exit_weight=1.2,
                  obstacle_weight=3.5):
         self.width = width
@@ -22,7 +24,9 @@ class Simulation:
                                        circle_obstacles=circle_obstacles)
         self.separation_weight = separation_weight
         self.alignment_weight = alignment_weight
-        self.cohesion_weight = cohesion_weight
+        self.cohesion_weight_open = cohesion_weight_open
+        self.cohesion_weight_near_obstacle = cohesion_weight_near_obstacle
+        self.obstacle_proximity_threshold = obstacle_proximity_threshold
         self.exit_weight = exit_weight
         self.obstacle_weight = obstacle_weight
 
@@ -127,19 +131,22 @@ class Simulation:
 
             separation_force = boid.separation(neighbors) * self.separation_weight
             alignment_force = boid.align(neighbors) * self.alignment_weight
-            cohesion_force = boid.cohesion(neighbors) * self.cohesion_weight
 
             exit_target = self._get_exit_target(boid.position)
             exit_force = boid.seek_exit(exit_target) * self.exit_weight
+
+            obstacle_distance = self.environment.distance_to_nearest_obstacle(boid.position)
+            near_obstacle = obstacle_distance < self.obstacle_proximity_threshold
+            effective_cohesion_weight = (self.cohesion_weight_near_obstacle
+                                         if near_obstacle
+                                         else self.cohesion_weight_open)
+            cohesion_force = boid.cohesion(neighbors) * effective_cohesion_weight
 
             obstacle_force = self.environment.obstacle_avoidance_force(
                 boid.position) * self.obstacle_weight
 
             bounds_force = self.keep_within_bounds(boid)
 
-            # Pak "zhurmë"/paparashikueshmëri e vogël - thyen simetritë e
-            # përkryera që mund të shkaktojnë bllokim te pengesat, dhe njëkohësisht
-            # e bën lëvizjen më realiste (njerëzit s'lëvizin në linja perfekte)
             noise = np.random.uniform(-0.05, 0.05, size=2)
 
             acceleration = (separation_force + alignment_force + cohesion_force +
@@ -149,9 +156,14 @@ class Simulation:
             if force_magnitude > boid.max_force:
                 acceleration = (acceleration / force_magnitude) * boid.max_force
 
+            if len(self.boids) <= 3:
+                print(f"pos={boid.position}, target={exit_target}, "
+                      f"vel={boid.velocity}, speed={np.linalg.norm(boid.velocity):.3f}")
+
             boid.update(acceleration)
             self.environment.resolve_collisions(boid)
             self.environment.enforce_boundaries(boid)
+            boid.check_and_escape_if_stuck()
 
             # Kontrollojmë nëse ka arritur te dalja
             if self.environment.has_reached_exit(boid.position):
