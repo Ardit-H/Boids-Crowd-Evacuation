@@ -9,11 +9,15 @@ class PolygonSimulation:
     def __init__(self, num_boids, vertices, doors, obstacles=None,
                  circle_obstacles=None, exit_width=15.0,
                  separation_weight=1.5, alignment_weight=1.0,
-                 cohesion_weight=1.0, exit_weight=1.2, obstacle_weight=3.5):
+                 cohesion_weight_open=0.15, cohesion_weight_near_obstacle=1.0,
+                 obstacle_proximity_threshold=45.0,
+                 exit_weight=1.2, obstacle_weight=3.5):
         self.room = PolygonRoom(vertices, doors, obstacles, circle_obstacles, exit_width)
         self.separation_weight = separation_weight
         self.alignment_weight = alignment_weight
-        self.cohesion_weight = cohesion_weight
+        self.cohesion_weight_open = cohesion_weight_open
+        self.cohesion_weight_near_obstacle = cohesion_weight_near_obstacle
+        self.obstacle_proximity_threshold = obstacle_proximity_threshold
         self.exit_weight = exit_weight
         self.obstacle_weight = obstacle_weight
 
@@ -57,14 +61,20 @@ class PolygonSimulation:
         evacuated = []
         for boid in self.boids:
             neighbors = self.get_neighbors(boid)
+            exit_target = self._get_exit_target(boid.position)
+            obstacle_distance = self.room.distance_to_nearest_obstacle(boid.position)
+            near_obstacle = obstacle_distance < self.obstacle_proximity_threshold
+            effective_cohesion_weight = (self.cohesion_weight_near_obstacle
+                                         if near_obstacle else self.cohesion_weight_open)
+
             acceleration = (
-                boid.separation(neighbors) * self.separation_weight +
-                boid.align(neighbors) * self.alignment_weight +
-                boid.cohesion(neighbors) * self.cohesion_weight +
-                boid.seek_exit(self._get_exit_target(boid.position)) * self.exit_weight +
-                self.room.obstacle_avoidance_force(boid.position) * self.obstacle_weight +
-                self.room.keep_within_bounds(boid) +
-                np.random.uniform(-0.05, 0.05, size=2)
+                    boid.separation(neighbors) * self.separation_weight +
+                    boid.align(neighbors) * self.alignment_weight +
+                    boid.cohesion(neighbors) * effective_cohesion_weight +
+                    boid.seek_exit(exit_target) * self.exit_weight +
+                    self.room.obstacle_avoidance_force(boid.position) * self.obstacle_weight +
+                    self.room.keep_within_bounds(boid) +
+                    np.random.uniform(-0.05, 0.05, size=2)
             )
             force_magnitude = np.linalg.norm(acceleration)
             if force_magnitude > boid.max_force:

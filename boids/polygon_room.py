@@ -198,6 +198,9 @@ class PolygonRoom:
                 if radial_velocity < 0:
                     boid.velocity -= 2 * radial_velocity * unit_dir
 
+    def distance_to_nearest_obstacle(self, position):
+        return self.flow_field.distance_to_nearest_obstacle(position)
+
 
 class PolygonFlowField:
     def __init__(self, room, cell_size=20, wall_avoid_radius=40.0, wall_penalty_weight=3.0):
@@ -377,3 +380,7 @@ class PolygonFlowField:
                 break
             row, col = next_row, next_col
         return np.array(self._cell_center(row, col))
+
+    def distance_to_nearest_obstacle(self, position):
+        row, col = self._cell_of(position)
+        return self.wall_distance[row, col]
