@@ -12,7 +12,7 @@ class Simulation:
                  exit_width=15.0, circle_obstacles=None,
                  separation_weight=1.5,
                  alignment_weight=1.0,
-                 cohesion_weight_open=0.15,
+                 cohesion_weight_open=0.05,
                  cohesion_weight_near_obstacle=1.0,
                  obstacle_proximity_threshold=45.0,
                  exit_weight=1.2,
