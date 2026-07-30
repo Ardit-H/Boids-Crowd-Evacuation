@@ -210,3 +210,6 @@ class Environment:
                 boid.position[1] = self.height
                 if boid.velocity[1] > 0:
                     boid.velocity[1] = 0
+
+    def distance_to_nearest_obstacle(self, position):
+        return self.flow_field.distance_to_nearest_obstacle(position)

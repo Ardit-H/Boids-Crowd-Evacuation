@@ -269,3 +269,12 @@ class FlowField:
         world_x = (col + 0.5) * self.cell_size
         world_y = (row + 0.5) * self.cell_size
         return np.array([world_x, world_y])
+
+    def distance_to_nearest_obstacle(self, position):
+        """
+        Kthen distancën (px) nga pozicioni te pengesa/muri i brendshëm
+        më i afërt, duke ripërdorur grid-in e njëjtë (wall_distance) që
+        përdoret tashmë për wall_penalty - pa llogaritje shtesë.
+        """
+        row, col = self._cell_of(position)
+        return self.wall_distance[row, col]
