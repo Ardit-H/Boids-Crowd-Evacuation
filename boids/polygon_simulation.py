@@ -83,6 +83,7 @@ class PolygonSimulation:
             boid.update(acceleration)
             self.room.resolve_collisions(boid)
             self.room.enforce_boundaries(boid)
+            boid.check_and_escape_if_stuck()
 
             if self.room.has_reached_exit(boid.position):
                 evacuated.append(boid)
