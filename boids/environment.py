@@ -22,7 +22,7 @@ def _exit_point(side, pos, width, height):
 class Environment:
     """
     Përfaqëson hapësirën fizike të evakuimit: kufijtë e dhomës, daljet
-    (dyert - tani në çdo nga 4 anët) dhe pengesat brenda saj.
+    (dyert - në çdo nga 4 anët) dhe pengesat brenda saj.
     """
 
     def __init__(self, width, height, exits, obstacles=None, exit_width=15.0,
@@ -33,7 +33,7 @@ class Environment:
         self.circle_obstacles = circle_obstacles if circle_obstacles is not None else []
         self.exit_width = exit_width
 
-        # Precompute AABB (min_x, min_y, max_x, max_y) për çdo pengesë, PA
+        # Llogarit AABB (min_x, min_y, max_x, max_y) për çdo pengesë, PA
         # inflate - përdoret si filtër i shpejtë përpara transformimeve
         # trigonometrike (to_local_space/closest_point_on_rotated_rect),
         # që janë të shtrenjta kur ka shumë pengesa. Llogaritet një herë,
@@ -44,17 +44,17 @@ class Environment:
             self._obstacle_aabbs.append(rotated_rect_bounding_box(ox, oy, ow, oh, angle))
         # Normalizon çdo dalje në format (side, pos) - mban pajtueshmëri
         # me formatin e vjetër (x, 0), i cili supozohej gjithmonë te
-        # muri i sipërm
+        # muri i sipërm.
         self.exit_specs = []
         for item in exits:
             side, pos = item
             if isinstance(side, str):
                 self.exit_specs.append((side, float(pos)))
             else:
-                # Format i vjetër: (x, y) -> supozo murin e sipërm
+                # Formati i vjetër: (x, y) -> supozo murin e sipërm.
                 self.exit_specs.append(("top", float(side)))
 
-        # Pikat aktuale (x, y) të çdo dere - përdoren për distanca/fallback
+        # Pikat aktuale (x, y) të çdo dere - përdoren për distanca/fallback.
         self.exits = [
             np.array(_exit_point(side, pos, width, height), dtype=float)
             for (side, pos) in self.exit_specs
@@ -65,6 +65,7 @@ class Environment:
                                     circle_obstacles=self.circle_obstacles)
 
     def nearest_exit(self, position):
+        """Kthen koordinatat (x, y) të derës më të afërt me pozicionin."""
         distances = [np.linalg.norm(position - exit_pos) for exit_pos in self.exits]
         nearest_index = np.argmin(distances)
         return self.exits[nearest_index]
@@ -74,6 +75,11 @@ class Environment:
         return np.linalg.norm(position - nearest)
 
     def get_next_waypoint(self, position):
+        """
+        Kthen pikën tjetër drejt së cilës duhet të lëvizë boid-i, sipas
+        flow field-it - ose derën më të afërt si fallback nëse flow field-i
+        s'jep waypoint (p.sh. pozicion i paarritshëm).
+        """
         waypoint = self.flow_field.get_waypoint(position, steps=3)
         if waypoint is None:
             return self.nearest_exit(position)
@@ -82,10 +88,9 @@ class Environment:
     def has_reached_exit(self, position):
         """
         Kontrollon nëse pozicioni ka arritur te ndonjë dalje. Buffer-i
-        prej 10px (jo 20px si më parë) e bën evakuimin të duket më
-        pranë vijës vizuale të derës - kjo tani është e sigurt pa
-        krijuar 'overshoot' të dukshëm, sepse seek_exit ngadalëson
-        boid-in ndërsa afrohet (arrival behavior).
+        prej 10px e bën evakuimin të duket më pranë vijës vizuale të
+        derës - kjo tani është e sigurt pa krijuar 'overshoot' të dukshëm,
+        sepse seek_exit ngadalëson boid-in ndërsa afrohet (arrival behavior).
         """
         x, y = position
         half = self.exit_width / 2 + 6
@@ -102,6 +107,11 @@ class Environment:
         return False
 
     def obstacle_avoidance_force(self, position, avoid_radius=55.0):
+        """
+        Kthen një vektor "steer" që largon boid-in nga pengesat brenda
+        avoid_radius - forcë e butë/graduale, jo bllokim absolut (atë e
+        bën resolve_collisions).
+        """
         steer = np.zeros(2)
 
         for obstacle, (min_x, min_y, max_x, max_y) in zip(self.obstacles, self._obstacle_aabbs):
@@ -132,7 +142,7 @@ class Environment:
 
         # Pengesat rrethore - pika më e afërt është gjithmonë në vetë
         # rrethin (qendër + rreze në drejtim të pozicionit), ndryshe
-        # nga drejtkëndëshi ku pika më e afërt varet nga cepi/skaji
+        # nga drejtkëndëshi ku pika më e afërt varet nga cepi/skaji.
         for (cx, cy, radius) in self.circle_obstacles:
             center = np.array([cx, cy])
             direction = position - center
@@ -150,6 +160,11 @@ class Environment:
         return steer
 
     def resolve_collisions(self, boid):
+        """
+        Zgjidh përplasjet e vërteta (boid brenda pengesës): e nxjerr në
+        skajin më të afërt dhe i përplas shpejtësinë, në krahasim me
+        obstacle_avoidance_force që vepron paraprakisht, në distancë.
+        """
         for obstacle, (min_x, min_y, max_x, max_y) in zip(self.obstacles, self._obstacle_aabbs):
             if not (min_x <= boid.position[0] <= max_x and
                     min_y <= boid.position[1] <= max_y):
@@ -158,7 +173,7 @@ class Environment:
             ox, oy, ow, oh, angle = normalize_obstacle(obstacle)
 
             if angle == 0.0:
-                # --- KODI ORIGJINAL, PA ASNJË NDRYSHIM ---
+                # Rasti kur angle==0.0: drejtkëndëshi i pa-rrotulluar (llogaritje boshti-drejtë).
                 if ox < boid.position[0] < ox + ow and oy < boid.position[1] < oy + oh:
                     dist_left = boid.position[0] - ox
                     dist_right = (ox + ow) - boid.position[0]
@@ -193,12 +208,11 @@ class Environment:
                             "right" if min_dist == dist_right else
                             "top" if min_dist == dist_top else "bottom")
                     if DEBUG_COLLISIONS:
-                        print(f"[COLLISION axis=0] side={side} min_dist={min_dist:.1f} "
-                             f"pos={boid.position} vel_after={boid.velocity}")
+                        pass # print(f"[COLLISION axis=0] side={side} min_dist={min_dist:.1f} "
+                             # f"pos={boid.position} vel_after={boid.velocity}")
 
             else:
-                # --- RASTI I RROTULLUAR - ripërdor TË NJËJTIN algoritëm,
-                # ekzekutuar në hapësirën lokale të pengesës ---
+                # Rast i rrotulluar: e njëjta logjikë, e ekzekutuar në hapësirën lokale të pengesës.
                 center = rect_center(ox, oy, ow, oh)
                 local_pos = to_local_space(boid.position, center, angle)
                 half_w, half_h = ow / 2.0, oh / 2.0
@@ -212,10 +226,9 @@ class Environment:
                     boid.velocity = rotate_vector(new_local_vel, angle)
 
                     if DEBUG_COLLISIONS:
-                        print(f"[COLLISION rotated angle={np.degrees(angle):.0f}] "
-                            f"pos={boid.position} vel_after={boid.velocity}")
+                        pass # print(f"[COLLISION rotated angle={np.degrees(angle):.0f}] "
+                             # f"pos={boid.position} vel_after={boid.velocity}")
 
-        # Pengesat rrethore - MBETET E PANDRYSHUAR
         for (cx, cy, radius) in self.circle_obstacles:
             center = np.array([cx, cy])
             direction = boid.position - center

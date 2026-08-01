@@ -1,6 +1,8 @@
 import numpy as np
 
-
+# Një pengesë përfaqësohet si tuple (ox, oy, ow, oh) - këndi i sipërm-
+# majtas, gjerësia, lartësia - ose (ox, oy, ow, oh, angle) nëse është
+# e rrotulluar (angle në radian, rreth qendrës së saj).
 def normalize_obstacle(obstacle):
     """(ox,oy,ow,oh) -> (ox,oy,ow,oh,0.0); (ox,oy,ow,oh,angle) mbetet i pandryshuar."""
     if len(obstacle) == 5:
@@ -12,21 +14,27 @@ def normalize_obstacle(obstacle):
 def rect_center(ox, oy, ow, oh):
     return np.array([ox + ow / 2.0, oy + oh / 2.0])
 
-
 def to_local_space(point, center, angle):
+    """
+    Kthen një pikë nga koordinatat botërore në koordinatat lokale të
+    pengesës (origjina = qendra e saj, boshtet të pa-rrotulluara).
+    """
     dx, dy = point[0] - center[0], point[1] - center[1]
     cos_a, sin_a = np.cos(-angle), np.sin(-angle)
     return np.array([dx * cos_a - dy * sin_a, dx * sin_a + dy * cos_a])
 
-
 def to_world_space(local_point, center, angle):
+    """E kundërta e to_local_space."""
     cos_a, sin_a = np.cos(angle), np.sin(angle)
     x = local_point[0] * cos_a - local_point[1] * sin_a
     y = local_point[0] * sin_a + local_point[1] * cos_a
     return np.array([x + center[0], y + center[1]])
 
-
 def closest_point_on_rotated_rect(position, ox, oy, ow, oh, angle):
+    """
+    Gjen pikën më të afërt në kufirin e pengesës me një pozicion të dhënë.
+    Kthen (pika, a_ishte_brenda).
+    """
     center = rect_center(ox, oy, ow, oh)
     local = to_local_space(position, center, angle)
     half_w, half_h = ow / 2.0, oh / 2.0
@@ -34,9 +42,8 @@ def closest_point_on_rotated_rect(position, ox, oy, ow, oh, angle):
     inside = abs(local[0]) < half_w and abs(local[1]) < half_h
 
     if inside:
-        # Brenda pengesës - gjej SKAJIN MË TË AFËRT (jo clamp, që s'ndryshon
-        # asgjë kur je brenda) - njësoj si llogaritja origjinale
-        # dist_left/right/top/bottom, por e përgjithësuar për çdo kënd
+        # Brenda pengesës - gjen SKAJIN MË TË AFËRT (jo clamp, që s'ndryshon
+        # asgjë kur je brenda)
         dist_right = half_w - local[0]
         dist_left = local[0] + half_w
         dist_top = half_h - local[1]
@@ -60,26 +67,34 @@ def closest_point_on_rotated_rect(position, ox, oy, ow, oh, angle):
     closest_world = to_world_space(closest_local, center, angle)
     return closest_world, inside
 
-
 def point_in_rotated_rect(point, ox, oy, ow, oh, angle, inflate=0.0):
+    """
+    Test bool nëse një pikë bie brenda pengesës (opsionalisht e zgjeruar
+    me inflate px).
+    """
     center = rect_center(ox, oy, ow, oh)
     local = to_local_space(point, center, angle)
     return abs(local[0]) < ow / 2.0 + inflate and abs(local[1]) < oh / 2.0 + inflate
 
-
 def get_rect_corners(ox, oy, ow, oh, angle):
+    """
+    Kthen 4 qoshet (koordinatat botërore) të pengesës së rrotulluar — përdoret
+    për vizatim te renderer.py.
+    """
     center = rect_center(ox, oy, ow, oh)
     half_w, half_h = ow / 2.0, oh / 2.0
     local_corners = [(-half_w, -half_h), (half_w, -half_h),
-                      (half_w, half_h), (-half_w, half_h)]
+                     (half_w, half_h), (-half_w, half_h)]
     return [to_world_space(np.array(c), center, angle) for c in local_corners]
 
 
 def rotated_rect_bounding_box(ox, oy, ow, oh, angle, inflate=0.0):
-    """Kthen (min_x, min_y, max_x, max_y) - kutia AABB që përmban të gjitha
+    """
+    Kthen (min_x, min_y, max_x, max_y) - kutia AABB që përmban të gjitha
     4 qoshet e rrotulluara. Përdoret nga grid rasterization (pathfinding.py,
     polygon_room.py) për të ditur cilat qeliza fare duhen kontrolluar,
-    para se të bëhet testi i saktë point_in_rotated_rect për secilën."""
+    para se të bëhet testi i saktë point_in_rotated_rect për secilën.
+    """
     corners = get_rect_corners(ox, oy, ow, oh, angle)
     xs = [c[0] for c in corners]
     ys = [c[1] for c in corners]
@@ -89,8 +104,10 @@ def rotated_rect_bounding_box(ox, oy, ow, oh, angle, inflate=0.0):
 
 
 def rotate_vector(vec, angle):
-    """Rrotullon VETËM drejtimin e një vektori (shpejtësi) - pa translim,
-    sepse shpejtësia s'ka pozicion, vetëm drejtim/madhësi."""
+    """
+    Rrotullon VETËM drejtimin e një vektori (shpejtësi) - pa translim,
+    sepse shpejtësia s'ka pozicion, vetëm drejtim/madhësi.
+    """
     cos_a, sin_a = np.cos(angle), np.sin(angle)
     return np.array([vec[0] * cos_a - vec[1] * sin_a,
                       vec[0] * sin_a + vec[1] * cos_a])
@@ -98,7 +115,7 @@ def rotate_vector(vec, angle):
 
 def resolve_axis_aligned_collision_local(local_pos, local_vel, ow, oh):
     """
-    EKZAKTËSISHT algoritmi origjinal i resolve_collisions (dist_left/
+    SAKTËSISHTË algoritmi origjinal i resolve_collisions (dist_left/
     right/top/bottom + kicks +1.0/+2.0), por duke punuar në koordinata
     LOKALE (origjina = qendra e pengesës, pa rrotullim). Për angle=0,
     hapësira lokale ËSHTË hapësira botërore e zhvendosur vetëm nga

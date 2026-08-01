@@ -42,6 +42,12 @@ TEXT_COLOR = (230, 230, 230)
 
 
 class Button:
+    """
+    Buton i thjeshtë, i klikueshëm për panelin e UI-it, me gjendje
+    hover/selected dhe një 'value' arbitrar që identifikon veprimin
+    që kryen kur klikohet.
+    """
+
     def __init__(self, x, y, w, h, label, value):
         self.rect = pygame.Rect(x, y, w, h)
         self.label = label
@@ -67,6 +73,8 @@ class Button:
 
 
 def make_button_group(x, y_start, w, h, gap, items):
+    """Krijon një kolonë vertikale butonash nga lista 'items'
+    (label, value), të pozicionuar automatikisht sipas 'gap'."""
     return [Button(x, y_start + i * (h + gap), w, h, label, value)
             for i, (label, value) in enumerate(items)]
 
@@ -178,6 +186,12 @@ def draw_circle_obstacles_from_list(screen, circles):
     for (cx, cy, radius) in circles:
         pygame.draw.circle(screen, CIRCLE_OBSTACLE_COLOR, (int(cx), int(cy)), int(radius))
 
+# Kur simulimi është aktiv dhe përdoruesi ndryshon placement mode
+# (p.sh. hap "Vendos Dyer" ndërkohë që simulimi po ndodh), duhet të
+# kapim gjendjen aktuale (dyer/pengesa) mbrapa te variablat "custom_*"
+# dhe të ndalim simulimin - kështu placement-i i ri shtohet mbi
+# gjendjen ekzistuese, jo mbi një listë bosh që do fshinte çdo gjë
+# që ishte vendosur më parë.
 def sync_from_simulation_if_active(simulation, custom_exits, custom_obstacles,
                                     custom_circle_obstacles):
     if simulation is not None:
@@ -195,7 +209,7 @@ def main():
     # Krijo fillimisht një dritare të vogël, të ripërmasueshme - do ta
     # maksimizojmë menjëherë përmes Windows API, i cili e llogarit vetë
     # saktë zonën e disponueshme (duke përjashtuar taskbar-in), pa
-    # nevojë për hamendje manuale të title bar-it/kufijve
+    # nevojë për hamendje manuale të title bar-it/kufijve.
     screen = pygame.display.set_mode((800, 600), pygame.RESIZABLE)
     pygame.display.set_caption("Boids Crowd Simulation")
 
@@ -206,7 +220,7 @@ def main():
 
         # Lexo madhësinë REALE të zonës së brendshme (client area) pas
         # maksimizimit - kjo është saktësisht ajo çka mund ta shohim,
-        # pa llogaritur vetë title bar/border
+        # pa llogaritur vetë title bar/border.
         client_rect = ctypes.wintypes.RECT()
         ctypes.windll.user32.GetClientRect(hwnd, ctypes.byref(client_rect))
         actual_width = client_rect.right - client_rect.left
@@ -215,7 +229,7 @@ def main():
         WIDTH, HEIGHT = actual_width, actual_height
         screen = pygame.display.set_mode((WIDTH, HEIGHT))
     except Exception:
-        # Fallback nëse s'jemi në Windows - përdor rezolucionin e ekranit
+        # Fallback nëse s'jemi në Windows - përdor rezolucionin e ekranit.
         display_info = pygame.display.Info()
         WIDTH = display_info.current_w
         HEIGHT = display_info.current_h - 70
@@ -228,23 +242,24 @@ def main():
     small_font = pygame.font.SysFont("Arial", 12)
     title_font = pygame.font.SysFont("Arial", 17, bold=True)
 
-    # --- Gjendja e konfigurimit ---
+    # --- Gjendja e konfigurimit. ---
     selected_width = 15.0
     selected_density = 80
-    custom_exits = [("top", SIM_WIDTH / 2)]   # default: 1 derë në mes të murit sipër
-    custom_obstacles = []                      # default: pa pengesa
-    custom_circle_obstacles = []  # default: pa pengesa rrethore
-    # --- Gjendja për dhomë me formë të lirë (poligon) ---
-    wall_vertices = []  # pikat e klikuar për të ndërtuar poligonin
-    wall_doors = []  # (seg_idx, t_center, half_width)
-    use_custom_room = False  # nëse True, Fillo Simulimin përdor PolygonSimulation
-    room_closed = False  # nëse poligoni është mbyllur (kthyer te pika e parë)
+    custom_exits = [("top", SIM_WIDTH / 2)]   # default: 1 derë në mes të murit sipër.
+    custom_obstacles = []                      # default: pa pengesa.
+    custom_circle_obstacles = []  # default: pa pengesa rrethore.
 
-    # --- Mënyra e vendosjes (placement mode) ---
+    # --- Gjendja për dhomë me formë të lirë (poligon). ---
+    wall_vertices = []  # pikat e klikuar për të ndërtuar poligonin.
+    wall_doors = []  # (seg_idx, t_center, half_width).
+    use_custom_room = False  # nëse True, Fillo Simulimin përdor PolygonSimulation.
+    room_closed = False  # nëse poligoni është mbyllur (kthyer te pika e parë).
+
+    # --- Mënyra e vendosjes (placement mode). ---
     # None = normal (kontrollon simulimin), "door" = vendos dyer,
-    # "obstacle" = vendos pengesa (drag për madhësi)
+    # "obstacle" = vendos pengesa (drag për madhësi).
     placement_mode = None
-    dragging_from = None  # pika e fillimit të drag-ut për pengesë
+    dragging_from = None  # pika e fillimit të drag-ut për pengesë.
 
     px = SIM_WIDTH + 20
     bw, bh, gap = PANEL_WIDTH - 40, 28, 6
@@ -286,18 +301,23 @@ def main():
                 running = False
 
             if event.type == pygame.MOUSEBUTTONDOWN:
-                # --- Klikime brenda zonës së simulimit (placement) ---
+                # Klikime brenda zonës së simulimit (placement).
                 if in_sim_area and placement_mode == "door":
                     result = determine_wall_side(mouse_pos, SIM_WIDTH, SIM_HEIGHT)
                     if result is not None:
                         custom_exits.append(result)
 
+                # Pengesë drejtkëndëshe - regjistron vetëm pikën e fillimit,
+                # madhësia përcaktohet në MOUSEBUTTONUP (drag).
                 elif in_sim_area and placement_mode == "obstacle":
                     dragging_from = mouse_pos
 
+                # Pengesë rrethore - njësoj, radius llogaritet në MOUSEBUTTONUP.
                 elif in_sim_area and placement_mode == "circle":
                     dragging_from = mouse_pos
 
+                # Ndërtim poligoni: çdo klikim shton kulm; klikimi pranë kulmit
+                # të parë (< 15px) e mbyll formën dhe aktivizon PolygonSimulation.
                 elif in_sim_area and placement_mode == "wall" and not room_closed:
                     if len(wall_vertices) >= 3 and \
                             np.linalg.norm(np.array(mouse_pos) - np.array(wall_vertices[0])) < 15:
@@ -306,6 +326,8 @@ def main():
                     else:
                         wall_vertices.append(mouse_pos)
 
+                # Vendos derë mbi murin e personalizuar: gjen segmentin më të
+                # afërt me klikimin dhe regjistron pozicionin relativ (t) mbi të.
                 elif in_sim_area and placement_mode == "wall_door" and room_closed:
                     n = len(wall_vertices)
                     best_seg, best_dist, best_t = -1, np.inf, 0.0
@@ -327,7 +349,7 @@ def main():
                         wall_doors.append((best_seg, best_t, selected_width / 2))
 
                 elif not in_sim_area:
-                    # --- Klikime te paneli (butona) ---
+                    # Klikime te paneli (butona).
                     for group in selection_groups:
                         for btn in group:
                             if btn.is_clicked(mouse_pos):
@@ -364,6 +386,9 @@ def main():
                         custom_obstacles = []
                         custom_circle_obstacles = []
 
+                    # Fillon simulimin - degëzohet sipas asaj nëse përdoruesi ka
+                    # ndërtuar mur të personalizuar (PolygonSimulation) apo përdor
+                    # dhomën standarde me 4 mure (Simulation).
                     if use_custom_room and room_closed and len(wall_doors) > 0:
                         if start_button.is_clicked(mouse_pos):
                             simulation = PolygonSimulation(
@@ -437,7 +462,7 @@ def main():
 
         step_start = time.perf_counter()
         step_time = 0.0
-        # --- Përditëso simulimin (vetëm jashtë placement mode) ---
+        # --- Përditëso simulimin (vetëm jashtë placement mode). ---
         if running_sim and simulation is not None and placement_mode is None:
             if not simulation.is_finished():
                 simulation.step()
@@ -448,7 +473,9 @@ def main():
                     print_summary(simulation.evacuation_times)
                     stats_printed = True
 
-        # --- Vizato ---
+        # --- Vizato. ---
+        # Tre gjendje të mundshme: simulim poligon aktiv, simulim drejtkëndësh
+        # aktiv, ose asnjë simulim (ende në modalitetin e konfigurimit/preview).
         draw_start = time.perf_counter()
         screen.fill(BACKGROUND_COLOR)
 
@@ -484,7 +511,7 @@ def main():
             draw_obstacles_from_list(screen, custom_obstacles)
             draw_circle_obstacles_from_list(screen, custom_circle_obstacles)
 
-            # Vizato murin e personalizuar gjatë ndërtimit
+            # Vizato murin e personalizuar gjatë ndërtimit.
             if len(wall_vertices) > 0:
                 if len(wall_vertices) > 1:
                     draw_thick_polyline(screen, WALL_PREVIEW_COLOR, wall_vertices,
@@ -506,7 +533,7 @@ def main():
                             p2 = center + unit * half_width
                             draw_thick_line(screen, EXIT_COLOR, p1, p2, thickness=6)
 
-        # Preview i pengesës gjatë "drag"
+        # Preview i pengesës gjatë "drag".
         if dragging_from is not None:
             if placement_mode == "obstacle":
                 x1, y1 = dragging_from

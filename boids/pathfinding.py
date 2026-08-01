@@ -7,7 +7,7 @@ from boids.geometry import normalize_obstacle, point_in_rotated_rect, rotated_re
 class FlowField:
     """
     Ndërton një 'hartë rrjedhe' (flow field): për çdo qelizë të lirë,
-    njehson drejtimin optimal drejt daljes më të afërt duke shmangur
+    njehëson drejtimin optimal drejt daljes më të afërt duke shmangur
     pengesat. Përdor Dijkstra multi-burim me KOSTO SHTESË pranë
     mureve (jo bllokim absolut) - kështu pathfinding-u PREFERON rrugë
     larg mureve kur ka mundësi, por gjithmonë gjen rrugë edhe në
@@ -42,7 +42,6 @@ class FlowField:
             ox, oy, ow, oh, angle = normalize_obstacle(obstacle)
 
             if angle == 0.0:
-                # --- KODI ORIGJINAL, PA ASNJË NDRYSHIM - rrugë e shpejtë ---
                 x0, y0 = ox - inflate, oy - inflate
                 x1, y1 = ox + ow + inflate, oy + oh + inflate
                 col0 = max(0, int(x0 // self.cell_size))
@@ -53,7 +52,7 @@ class FlowField:
             else:
                 # --- RASTI I RROTULLUAR - gjej AABB që përmban gjithë
                 # drejtkëndëshin e rrotulluar, pastaj testo çdo qelizë
-                # brenda saj me testin e saktë (jo çdo qelizë të grid-it) ---
+                # brenda saj me testin e saktë (jo çdo qelizë të grid-it). ---
                 min_x, min_y, max_x, max_y = rotated_rect_bounding_box(
                     ox, oy, ow, oh, angle, inflate=inflate)
                 col0 = max(0, int(min_x // self.cell_size))
@@ -89,7 +88,7 @@ class FlowField:
 
     def _find_exit_cells(self, exit_specs, exit_width):
         """
-        Gjen qelizat e grid-it që korrespondojnë me çdo derë, tani në
+        Gjen qelizat e grid-it që korrespondojnë me çdo derë, në
         çdo nga 4 anët e dhomës (jo vetëm murin e sipërm).
         """
         sources = []
@@ -141,7 +140,7 @@ class FlowField:
                 if self.blocked[nr, nc]:
                     continue
 
-                # Ndalo prerjen diagonale të cepit (corner-cutting)
+                # Ndalojmë prerjen diagonale të cepit (corner-cutting)
                 if dr != 0 and dc != 0:
                     if self.blocked[row + dr, col] or self.blocked[row, col + dc]:
                         continue

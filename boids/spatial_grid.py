@@ -6,7 +6,7 @@ class SpatialGrid:
     """
     Ndan hapësirën në qeliza (bucket) sipas pozicionit, për të gjetur
     shpejt fqinjët e një boid-i pa kontrolluar TË GJITHË boid-et e
-    tjerë (O(n) mesatarisht, në vend të O(n²)). Ribuildon në fillim
+    tjerë (O(n) mesatarisht, në vend të O(n²)). Rindërtohet në fillim
     të çdo frame-i.
     """
 

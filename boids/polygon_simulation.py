@@ -5,10 +5,13 @@ from boids.polygon_room import PolygonRoom
 from boids.geometry import normalize_obstacle, point_in_rotated_rect
 from boids.spatial_grid import SpatialGrid
 
-DEBUG_PERF = False
+DEBUG_PERF = False # Vendos True për diagnostikim performance, shih [PERF] print (i komentuar poshtë).
 
 class PolygonSimulation:
-    """Version paralel i Simulation, që përdor PolygonRoom (formë e lirë) në vend të Environment."""
+    """
+    Version paralel i Simulation, që përdor PolygonRoom (formë e lirë)
+    në vend të Environment.
+    """
 
     def __init__(self, num_boids, vertices, doors, obstacles=None,
                  circle_obstacles=None, exit_width=15.0,

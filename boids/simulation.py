@@ -5,7 +5,7 @@ from boids.environment import Environment
 from boids.geometry import normalize_obstacle, point_in_rotated_rect
 from boids.spatial_grid import SpatialGrid
 
-DEBUG_PERF = False
+DEBUG_PERF = False # Vendos True për diagnostikim performance, shih [PERF] print (i komentuar poshtë).
 
 class Simulation:
     """
@@ -43,16 +43,16 @@ class Simulation:
 
         # Krijojmë N boid-e me pozicione dhe shpejtësi fillestare random,
         # duke shmangur pozicionet që bien brenda ndonjë pengese (do të
-        # krijonin boid të "ngujuar" që nga vetë fillimi)
+        # krijonin boid të "ngujuar" që nga vetë fillimi).
         self.boids = []
         for _ in range(num_boids):
             position = self._random_free_position(width, height)
             velocity = [np.random.uniform(-2, 2), np.random.uniform(-2, 2)]
             self.boids.append(Boid(position, velocity))
 
-        # Regjistrimi i kohës së evakuimit për çdo boid (për analizë)
+        # Regjistrimi i kohës së evakuimit për çdo boid (për analizë).
         self.evacuation_times = []
-        self.time_elapsed = 0  # numërues i "frame"-ve/hapave kohorë
+        self.time_elapsed = 0  # numërues i "frame"-ve/hapave kohorë.
 
     def _random_free_position(self, width, height, max_attempts=50):
         """

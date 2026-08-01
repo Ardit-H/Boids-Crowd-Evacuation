@@ -24,10 +24,9 @@ def point_in_polygon(point, vertices):
 
 def closest_point_on_segment(point, a, b):
     """
-    Njësoj si më parë matematikisht, por me float Python të thjeshtë
-    në vend të np.array - kjo thirret për ÇDO segment, ÇDO boid, ÇDO
-    frame (hot loop i dendur), dhe overhead-i i thirrjeve numpy mbi
-    vektorë 2D të vegjël e kalon vetë koston e llogaritjes.
+    Përdorim float Python të thjeshtë në vend të np.array - kjo thirret
+    për ÇDO segment, ÇDO boid, ÇDO frame (hot loop i dendur), dhe overhead-i
+    i thirrjeve numpy mbi vektorë 2D të vegjël e kalon vetë koston e llogaritjes.
     """
     px, py = point[0], point[1]
     ax, ay = a[0], a[1]
@@ -163,7 +162,6 @@ class PolygonRoom:
                 continue
 
             ox, oy, ow, oh, angle = normalize_obstacle(obstacle)
-            # ... pjesa tjetër (if angle == 0.0 / else, direction, steer) e pandryshuar
 
             if angle == 0.0:
                 closest_x = np.clip(position[0], ox, ox + ow)
@@ -202,7 +200,6 @@ class PolygonRoom:
                 continue
 
             ox, oy, ow, oh, angle = normalize_obstacle(obstacle)
-            # ... pjesa tjetër (if angle == 0.0 / else) EKZAKTËSISHT e pandryshuar
 
             if angle == 0.0:
                 if ox < boid.position[0] < ox + ow and oy < boid.position[1] < oy + oh:
@@ -382,29 +379,6 @@ class PolygonFlowField:
                     cost = 1.0
                 yield nr, nc, cost
 
-    def _compute_wall_distance(self):
-        dist = np.full((self.rows, self.cols), np.inf)
-        q = deque()
-        for r in range(self.rows):
-            for c in range(self.cols):
-                if self.blocked[r, c]:
-                    dist[r, c] = 0.0
-                    q.append((r, c))
-        while q:
-            r, c = q.popleft()
-            d = dist[r, c]
-            for dr in (-1, 0, 1):
-                for dc in (-1, 0, 1):
-                    if dr == 0 and dc == 0:
-                        continue
-                    nr, nc = r + dr, c + dc
-                    if 0 <= nr < self.rows and 0 <= nc < self.cols:
-                        step = np.sqrt(2) if dr != 0 and dc != 0 else 1.0
-                        nd = d + step
-                        if nd < dist[nr, nc]:
-                            dist[nr, nc] = nd
-                            q.append((nr, nc))
-        return dist * self.cell_size
 
     def _wall_penalty(self, row, col):
         wd = self.wall_distance[row, col]

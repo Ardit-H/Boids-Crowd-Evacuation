@@ -1,6 +1,10 @@
 import sys
 import os
 
+# Riprodukton vetëm grafikun e krahasimit nga një CSV ekzistues
+# (batch_results_summary.csv), pa rirenderuar gjithë batch-in e
+# simulimeve - i dobishëm kur do të ndryshosh vetëm stilin/formatin
+# e grafikut pa pritur minuta rirenderimi.
 sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), '..')))
 
 from analysis.metrics import plot_config_comparison

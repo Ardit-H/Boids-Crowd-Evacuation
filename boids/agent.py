@@ -15,7 +15,7 @@ class Boid:
         self.max_force = max_force
 
         # Gjendje për zbulimin e "ngërçit" (deadlock) - regjistron pozicionin
-        # çdo N frame dhe kontrollon nëse ka pasur lëvizje reale që atëherë
+        # çdo N frame dhe kontrollon nëse ka pasur lëvizje reale që atëherë.
         self.stuck_check_position = self.position.copy()
         self.stuck_frame_counter = 0
 
@@ -30,13 +30,13 @@ class Boid:
         for other in neighbors:
             distance = np.linalg.norm(self.position - other.position)
             if 0 < distance < desired_separation:
-                # Sa më afër është fqinji, aq më fort e shtyn larg (pesha 1/distance)
+                # Sa më afër është fqinji, aq më fort e shtyn larg (pesha 1/distance).
                 diff = (self.position - other.position) / distance
                 steer += diff
                 count += 1
 
         if count > 0:
-            steer /= count  # mesatarja e forcave shtytëse nga të gjithë fqinjët e afërt
+            steer /= count  # mesatarja e forcave shtytëse nga të gjithë fqinjët e afërt.
 
         return steer
 
@@ -86,10 +86,10 @@ class Boid:
         """
         Tërhiqet drejt pikës së daljes, me ngadalësim gradual pranë
         qëllimit ('arrival behavior') që parandalon overshoot. Ka një
-        'dysheme' minimale shpejtësie (min_speed_ratio) - kështu forca
-        drejt derës MOS bëhet kurrë aq e dobët sa të mposhtet lehtësisht
-        nga separation/cohesion e boid-eve të tjerë të grumbulluar pranë
-        derës, gjë që do të shkaktonte lëkundje/rrotullim pikërisht atje.
+        min_speed_ratio - kështu forca drejt derës NUK bëhet kurrë aq
+        e dobët sa të mposhtet lehtësisht nga separation/cohesion e
+        boid-eve të tjerë të grumbulluar pranë derës, gjë që do të
+        shkaktonte lëkundje/rrotullim pikërisht atje.
         """
         desired = exit_position - self.position
         distance = np.linalg.norm(desired)
@@ -114,7 +114,7 @@ class Boid:
         """
         self.velocity += acceleration
 
-        # Kufizojmë shpejtësinë maksimale (agjenti s'mund të lëvizë më shpejt se max_speed)
+        # Kufizojmë shpejtësinë maksimale (agjenti s'mund të lëvizë më shpejt se max_speed).
         speed = np.linalg.norm(self.velocity)
         if speed > self.max_speed:
             self.velocity = (self.velocity / speed) * self.max_speed
@@ -128,7 +128,8 @@ class Boid:
         stuck_frames_threshold frame-ve të fundit, i jep një impuls
         shpejtësie në drejtim RANDOM për ta zhbllokuar nga një ekuilibër
         i ngërçuar forcash (rasti tipik: 2-3 boid të mbetur që orbitojnë
-        njëri-tjetrin pa avancuar kurrë drejt daljes).
+        rreth pozitës së tyre pa avancuar kurrë drejt daljes).
+
         escape_strength: fraksion i max_speed që i shtohet shpejtësisë
         ekzistuese (jo zëvendësim total) - kështu efekti është një shtytje
         korrigjuese, jo një ndryshim i papritur drejtimi 180°.
