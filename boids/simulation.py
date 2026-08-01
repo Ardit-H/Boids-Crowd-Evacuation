@@ -5,7 +5,7 @@ from boids.environment import Environment
 from boids.geometry import normalize_obstacle, point_in_rotated_rect
 from boids.spatial_grid import SpatialGrid
 
-DEBUG_PERF = True
+DEBUG_PERF = False
 
 class Simulation:
     """
@@ -201,17 +201,17 @@ class Simulation:
             self._perf_frame_count += 1
             if self._perf_frame_count >= 60:
                 total = sum(self._perf_timers.values())
-                print(f"[PERF] boids={len(self.boids)} total={total * 1000:.1f}ms/60frames "
-                      f"neighbors={self._perf_timers['neighbors'] * 1000:.1f}ms "
-                      f"sep_align={self._perf_timers['sep_align'] * 1000:.1f}ms "
-                      f"pathfinding={self._perf_timers['pathfinding'] * 1000:.1f}ms "
-                      f"seek_exit={self._perf_timers['seek_exit'] * 1000:.1f}ms "
-                      f"obstacle_dist={self._perf_timers['obstacle_dist'] * 1000:.1f}ms "
-                      f"cohesion={self._perf_timers['cohesion'] * 1000:.1f}ms "
-                      f"obstacle_avoid={self._perf_timers['obstacle_avoid'] * 1000:.1f}ms "
-                      f"other_forces={self._perf_timers['other_forces'] * 1000:.1f}ms "
-                      f"collisions={self._perf_timers['collisions'] * 1000:.1f}ms "
-                      f"boundaries={self._perf_timers['boundaries'] * 1000:.1f}ms")
+                # print(f"[PERF] boids={len(self.boids)} total={total * 1000:.1f}ms/60frames "
+                #       f"neighbors={self._perf_timers['neighbors'] * 1000:.1f}ms "
+                #       f"sep_align={self._perf_timers['sep_align'] * 1000:.1f}ms "
+                #       f"pathfinding={self._perf_timers['pathfinding'] * 1000:.1f}ms "
+                #       f"seek_exit={self._perf_timers['seek_exit'] * 1000:.1f}ms "
+                #       f"obstacle_dist={self._perf_timers['obstacle_dist'] * 1000:.1f}ms "
+                #       f"cohesion={self._perf_timers['cohesion'] * 1000:.1f}ms "
+                #       f"obstacle_avoid={self._perf_timers['obstacle_avoid'] * 1000:.1f}ms "
+                #       f"other_forces={self._perf_timers['other_forces'] * 1000:.1f}ms "
+                #       f"collisions={self._perf_timers['collisions'] * 1000:.1f}ms "
+                #       f"boundaries={self._perf_timers['boundaries'] * 1000:.1f}ms")
                 self._perf_frame_count = 0
                 for k in self._perf_timers:
                     self._perf_timers[k] = 0.0
