@@ -3,7 +3,8 @@ from boids.pathfinding import FlowField
 from boids.geometry import (normalize_obstacle, rect_center, to_local_space,
                              to_world_space, rotate_vector,
                              resolve_axis_aligned_collision_local,
-                             closest_point_on_rotated_rect)
+                             closest_point_on_rotated_rect,
+                             rotated_rect_bounding_box)
 
 DEBUG_COLLISIONS = False
 
@@ -32,6 +33,15 @@ class Environment:
         self.circle_obstacles = circle_obstacles if circle_obstacles is not None else []
         self.exit_width = exit_width
 
+        # Precompute AABB (min_x, min_y, max_x, max_y) për çdo pengesë, PA
+        # inflate - përdoret si filtër i shpejtë përpara transformimeve
+        # trigonometrike (to_local_space/closest_point_on_rotated_rect),
+        # që janë të shtrenjta kur ka shumë pengesa. Llogaritet një herë,
+        # jo çdo frame.
+        self._obstacle_aabbs = []
+        for obstacle in self.obstacles:
+            ox, oy, ow, oh, angle = normalize_obstacle(obstacle)
+            self._obstacle_aabbs.append(rotated_rect_bounding_box(ox, oy, ow, oh, angle))
         # Normalizon çdo dalje në format (side, pos) - mban pajtueshmëri
         # me formatin e vjetër (x, 0), i cili supozohej gjithmonë te
         # muri i sipërm
@@ -91,19 +101,24 @@ class Environment:
                 return True
         return False
 
-    def obstacle_avoidance_force(self, position, avoid_radius=40.0):
+    def obstacle_avoidance_force(self, position, avoid_radius=55.0):
         steer = np.zeros(2)
 
-        for obstacle in self.obstacles:
+        for obstacle, (min_x, min_y, max_x, max_y) in zip(self.obstacles, self._obstacle_aabbs):
+            # Filtër i shpejtë: nëse boid-i s'është as brenda AABB-së së
+            # zgjeruar me avoid_radius, s'ka mënyrë të jetë brenda
+            # avoid_radius nga vetë pengesa - skip pa asnjë trig call.
+            if not (min_x - avoid_radius <= position[0] <= max_x + avoid_radius and
+                    min_y - avoid_radius <= position[1] <= max_y + avoid_radius):
+                continue
+
             ox, oy, ow, oh, angle = normalize_obstacle(obstacle)
 
             if angle == 0.0:
-                # --- KODI ORIGJINAL, PA ASNJË NDRYSHIM ---
                 closest_x = np.clip(position[0], ox, ox + ow)
                 closest_y = np.clip(position[1], oy, oy + oh)
                 closest_point = np.array([closest_x, closest_y])
             else:
-                # --- RASTI I RROTULLUAR ---
                 closest_point, _ = closest_point_on_rotated_rect(
                     position, ox, oy, ow, oh, angle)
 
@@ -135,7 +150,11 @@ class Environment:
         return steer
 
     def resolve_collisions(self, boid):
-        for obstacle in self.obstacles:
+        for obstacle, (min_x, min_y, max_x, max_y) in zip(self.obstacles, self._obstacle_aabbs):
+            if not (min_x <= boid.position[0] <= max_x and
+                    min_y <= boid.position[1] <= max_y):
+                continue
+
             ox, oy, ow, oh, angle = normalize_obstacle(obstacle)
 
             if angle == 0.0:
