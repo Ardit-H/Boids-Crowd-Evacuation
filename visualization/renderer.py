@@ -5,9 +5,11 @@ import os
 import ctypes
 import ctypes.wintypes
 import pygame.gfxdraw
+import time
 from boids.geometry import normalize_obstacle, get_rect_corners
 
-DEBUG_COLLISIONS = False
+DEBUG_COLLISIONS = True
+DEBUG_PERF = True   # ose False, kur ta mbyllësh testimin
 
 sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), '..')))
 PROJECT_ROOT = os.path.abspath(os.path.join(os.path.dirname(__file__), '..'))
@@ -433,10 +435,13 @@ def main():
 
                 dragging_from = None
 
+        step_start = time.perf_counter()
+        step_time = 0.0
         # --- Përditëso simulimin (vetëm jashtë placement mode) ---
         if running_sim and simulation is not None and placement_mode is None:
             if not simulation.is_finished():
                 simulation.step()
+                step_time = time.perf_counter() - step_start
             else:
                 running_sim = False
                 if not stats_printed:
@@ -444,6 +449,7 @@ def main():
                     stats_printed = True
 
         # --- Vizato ---
+        draw_start = time.perf_counter()
         screen.fill(BACKGROUND_COLOR)
 
         if simulation is not None and isinstance(simulation, PolygonSimulation):
@@ -567,6 +573,9 @@ def main():
             if simulation.is_finished():
                 screen.blit(font.render("✓ Evakuimi përfundoi!", True, EXIT_COLOR), (px, 682))
 
+        draw_time = time.perf_counter() - draw_start
+        if DEBUG_PERF and simulation is not None:
+            print(f"[PERF-RENDER] step={step_time * 1000:.1f}ms draw={draw_time * 1000:.1f}ms")
         pygame.display.flip()
         clock.tick(FPS)
 
