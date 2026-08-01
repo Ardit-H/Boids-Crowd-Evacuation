@@ -17,7 +17,7 @@ class FlowField:
 
     def __init__(self, width, height, obstacles, exit_specs, exit_width,
                  cell_size=20, blocked_inflate=8.0,
-                 wall_avoid_radius=40.0, wall_penalty_weight=3.0,
+                 wall_avoid_radius=40.0, wall_penalty_weight=5.0,
                  circle_obstacles=None):
         self.cell_size = cell_size
         self.cols = int(np.ceil(width / cell_size))
