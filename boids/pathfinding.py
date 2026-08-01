@@ -1,6 +1,7 @@
 import numpy as np
 import heapq
 from collections import deque
+from boids.geometry import normalize_obstacle, point_in_rotated_rect, rotated_rect_bounding_box
 
 
 class FlowField:
@@ -37,14 +38,35 @@ class FlowField:
     def _build_blocked_grid(self, obstacles, inflate, circle_obstacles):
         blocked = np.zeros((self.rows, self.cols), dtype=bool)
 
-        for (ox, oy, ow, oh) in obstacles:
-            x0, y0 = ox - inflate, oy - inflate
-            x1, y1 = ox + ow + inflate, oy + oh + inflate
-            col0 = max(0, int(x0 // self.cell_size))
-            col1 = min(self.cols - 1, int(x1 // self.cell_size))
-            row0 = max(0, int(y0 // self.cell_size))
-            row1 = min(self.rows - 1, int(y1 // self.cell_size))
-            blocked[row0:row1 + 1, col0:col1 + 1] = True
+        for obstacle in obstacles:
+            ox, oy, ow, oh, angle = normalize_obstacle(obstacle)
+
+            if angle == 0.0:
+                # --- KODI ORIGJINAL, PA ASNJË NDRYSHIM - rrugë e shpejtë ---
+                x0, y0 = ox - inflate, oy - inflate
+                x1, y1 = ox + ow + inflate, oy + oh + inflate
+                col0 = max(0, int(x0 // self.cell_size))
+                col1 = min(self.cols - 1, int(x1 // self.cell_size))
+                row0 = max(0, int(y0 // self.cell_size))
+                row1 = min(self.rows - 1, int(y1 // self.cell_size))
+                blocked[row0:row1 + 1, col0:col1 + 1] = True
+            else:
+                # --- RASTI I RROTULLUAR - gjej AABB që përmban gjithë
+                # drejtkëndëshin e rrotulluar, pastaj testo çdo qelizë
+                # brenda saj me testin e saktë (jo çdo qelizë të grid-it) ---
+                min_x, min_y, max_x, max_y = rotated_rect_bounding_box(
+                    ox, oy, ow, oh, angle, inflate=inflate)
+                col0 = max(0, int(min_x // self.cell_size))
+                col1 = min(self.cols - 1, int(max_x // self.cell_size))
+                row0 = max(0, int(min_y // self.cell_size))
+                row1 = min(self.rows - 1, int(max_y // self.cell_size))
+                for row in range(row0, row1 + 1):
+                    for col in range(col0, col1 + 1):
+                        cell_x = (col + 0.5) * self.cell_size
+                        cell_y = (row + 0.5) * self.cell_size
+                        if point_in_rotated_rect(np.array([cell_x, cell_y]),
+                                                  ox, oy, ow, oh, angle, inflate=inflate):
+                            blocked[row, col] = True
 
         # Rasterizon pengesat rrethore në grid - shënon si "e bllokuar"
         # çdo qelizë brenda (rreze + inflate) nga qendra e rrethit
