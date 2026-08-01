@@ -121,13 +121,17 @@ class Boid:
 
         self.position += self.velocity
 
-    def check_and_escape_if_stuck(self, stuck_frames_threshold=40, min_displacement=10.0):
+    def check_and_escape_if_stuck(self, stuck_frames_threshold=40, min_displacement=10.0,
+                                  escape_strength=0.4):
         """
         Nëse boid-i s'ka lëvizur mjaftueshëm (min_displacement px) brenda
         stuck_frames_threshold frame-ve të fundit, i jep një impuls
         shpejtësie në drejtim RANDOM për ta zhbllokuar nga një ekuilibër
         i ngërçuar forcash (rasti tipik: 2-3 boid të mbetur që orbitojnë
         njëri-tjetrin pa avancuar kurrë drejt daljes).
+        escape_strength: fraksion i max_speed që i shtohet shpejtësisë
+        ekzistuese (jo zëvendësim total) - kështu efekti është një shtytje
+        korrigjuese, jo një ndryshim i papritur drejtimi 180°.
         """
         self.stuck_frame_counter += 1
 
@@ -136,7 +140,11 @@ class Boid:
 
             if displacement < min_displacement:
                 angle = np.random.uniform(0, 2 * np.pi)
-                self.velocity = np.array([np.cos(angle), np.sin(angle)]) * self.max_speed
+                impulse = np.array([np.cos(angle), np.sin(angle)]) * self.max_speed * escape_strength
+                self.velocity += impulse
+                speed = np.linalg.norm(self.velocity)
+                if speed > self.max_speed:
+                    self.velocity = (self.velocity / speed) * self.max_speed
 
             self.stuck_check_position = self.position.copy()
             self.stuck_frame_counter = 0
