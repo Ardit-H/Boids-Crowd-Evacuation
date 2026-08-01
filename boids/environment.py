@@ -1,6 +1,11 @@
 import numpy as np
 from boids.pathfinding import FlowField
+from boids.geometry import (normalize_obstacle, rect_center, to_local_space,
+                             to_world_space, rotate_vector,
+                             resolve_axis_aligned_collision_local,
+                             closest_point_on_rotated_rect)
 
+DEBUG_COLLISIONS = False
 
 def _exit_point(side, pos, width, height):
     if side == "top":
@@ -89,10 +94,19 @@ class Environment:
     def obstacle_avoidance_force(self, position, avoid_radius=40.0):
         steer = np.zeros(2)
 
-        for (ox, oy, ow, oh) in self.obstacles:
-            closest_x = np.clip(position[0], ox, ox + ow)
-            closest_y = np.clip(position[1], oy, oy + oh)
-            closest_point = np.array([closest_x, closest_y])
+        for obstacle in self.obstacles:
+            ox, oy, ow, oh, angle = normalize_obstacle(obstacle)
+
+            if angle == 0.0:
+                # --- KODI ORIGJINAL, PA ASNJË NDRYSHIM ---
+                closest_x = np.clip(position[0], ox, ox + ow)
+                closest_y = np.clip(position[1], oy, oy + oh)
+                closest_point = np.array([closest_x, closest_y])
+            else:
+                # --- RASTI I RROTULLUAR ---
+                closest_point, _ = closest_point_on_rotated_rect(
+                    position, ox, oy, ow, oh, angle)
+
             direction = position - closest_point
             distance = np.linalg.norm(direction)
             if distance < avoid_radius:
@@ -121,41 +135,68 @@ class Environment:
         return steer
 
     def resolve_collisions(self, boid):
-        for (ox, oy, ow, oh) in self.obstacles:
-            if ox < boid.position[0] < ox + ow and oy < boid.position[1] < oy + oh:
-                dist_left = boid.position[0] - ox
-                dist_right = (ox + ow) - boid.position[0]
-                dist_top = boid.position[1] - oy
-                dist_bottom = (oy + oh) - boid.position[1]
+        for obstacle in self.obstacles:
+            ox, oy, ow, oh, angle = normalize_obstacle(obstacle)
 
-                min_dist = min(dist_left, dist_right, dist_top, dist_bottom)
-                obstacle_center_x = ox + ow / 2
+            if angle == 0.0:
+                # --- KODI ORIGJINAL, PA ASNJË NDRYSHIM ---
+                if ox < boid.position[0] < ox + ow and oy < boid.position[1] < oy + oh:
+                    dist_left = boid.position[0] - ox
+                    dist_right = (ox + ow) - boid.position[0]
+                    dist_top = boid.position[1] - oy
+                    dist_bottom = (oy + oh) - boid.position[1]
 
-                if min_dist == dist_left:
-                    boid.position[0] = ox - 1
-                    boid.velocity[0] = -abs(boid.velocity[0]) - 1.0
-                elif min_dist == dist_right:
-                    boid.position[0] = ox + ow + 1
-                    boid.velocity[0] = abs(boid.velocity[0]) + 1.0
-                elif min_dist == dist_top:
-                    boid.position[1] = oy - 1
-                    boid.velocity[1] = -abs(boid.velocity[1])
-                    if boid.position[0] < obstacle_center_x:
-                        boid.velocity[0] -= 2.0
+                    min_dist = min(dist_left, dist_right, dist_top, dist_bottom)
+                    obstacle_center_x = ox + ow / 2
+
+                    if min_dist == dist_left:
+                        boid.position[0] = ox - 1
+                        boid.velocity[0] = -abs(boid.velocity[0]) - 1.0
+                    elif min_dist == dist_right:
+                        boid.position[0] = ox + ow + 1
+                        boid.velocity[0] = abs(boid.velocity[0]) + 1.0
+                    elif min_dist == dist_top:
+                        boid.position[1] = oy - 1
+                        boid.velocity[1] = -abs(boid.velocity[1])
+                        if boid.position[0] < obstacle_center_x:
+                            boid.velocity[0] -= 2.0
+                        else:
+                            boid.velocity[0] += 2.0
                     else:
-                        boid.velocity[0] += 2.0
-                else:
-                    boid.position[1] = oy + oh + 1
-                    boid.velocity[1] = abs(boid.velocity[1])
-                    if boid.position[0] < obstacle_center_x:
-                        boid.velocity[0] -= 2.0
-                    else:
-                        boid.velocity[0] += 2.0
+                        boid.position[1] = oy + oh + 1
+                        boid.velocity[1] = abs(boid.velocity[1])
+                        if boid.position[0] < obstacle_center_x:
+                            boid.velocity[0] -= 2.0
+                        else:
+                            boid.velocity[0] += 2.0
 
-        # Kolizion i fortë me pengesa rrethore - nëse boid-i bie brenda
-        # rrezes, e nxjerr direkt përgjatë vijës qendër-boid (më e
-        # thjeshtë matematikisht se drejtkëndëshi, sepse rrethi ka
-        # simetri të plotë rrotative)
+                    side = ("left" if min_dist == dist_left else
+                            "right" if min_dist == dist_right else
+                            "top" if min_dist == dist_top else "bottom")
+                    if DEBUG_COLLISIONS:
+                        print(f"[COLLISION axis=0] side={side} min_dist={min_dist:.1f} "
+                             f"pos={boid.position} vel_after={boid.velocity}")
+
+            else:
+                # --- RASTI I RROTULLUAR - ripërdor TË NJËJTIN algoritëm,
+                # ekzekutuar në hapësirën lokale të pengesës ---
+                center = rect_center(ox, oy, ow, oh)
+                local_pos = to_local_space(boid.position, center, angle)
+                half_w, half_h = ow / 2.0, oh / 2.0
+
+                if abs(local_pos[0]) < half_w and abs(local_pos[1]) < half_h:
+                    local_vel = to_local_space(boid.velocity, np.zeros(2), angle)
+                    new_local_pos, new_local_vel = resolve_axis_aligned_collision_local(
+                        local_pos, local_vel, ow, oh)
+
+                    boid.position = to_world_space(new_local_pos, center, angle)
+                    boid.velocity = rotate_vector(new_local_vel, angle)
+
+                    if DEBUG_COLLISIONS:
+                        print(f"[COLLISION rotated angle={np.degrees(angle):.0f}] "
+                            f"pos={boid.position} vel_after={boid.velocity}")
+
+        # Pengesat rrethore - MBETET E PANDRYSHUAR
         for (cx, cy, radius) in self.circle_obstacles:
             center = np.array([cx, cy])
             direction = boid.position - center
