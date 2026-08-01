@@ -1,6 +1,7 @@
 import numpy as np
 from boids.agent import Boid
 from boids.environment import Environment
+from boids.geometry import normalize_obstacle, point_in_rotated_rect
 
 class Simulation:
     """
@@ -58,9 +59,9 @@ class Simulation:
 
     def _is_inside_any_obstacle(self, position, padding=10.0):
         x, y = position
-        for (ox, oy, ow, oh) in self.environment.obstacles:
-            if (ox - padding) < x < (ox + ow + padding) and \
-                    (oy - padding) < y < (oy + oh + padding):
+        for obstacle in self.environment.obstacles:
+            ox, oy, ow, oh, angle = normalize_obstacle(obstacle)
+            if point_in_rotated_rect(np.array([x, y]), ox, oy, ow, oh, angle, inflate=padding):
                 return True
 
         for (cx, cy, radius) in self.environment.circle_obstacles:

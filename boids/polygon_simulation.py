@@ -1,6 +1,7 @@
 import numpy as np
 from boids.agent import Boid
 from boids.polygon_room import PolygonRoom
+from boids.geometry import normalize_obstacle, point_in_rotated_rect
 
 
 class PolygonSimulation:
@@ -38,12 +39,15 @@ class PolygonSimulation:
 
     def _is_inside_any_obstacle(self, position, padding=10.0):
         x, y = position
-        for (ox, oy, ow, oh) in self.room.obstacles:
-            if (ox - padding) < x < (ox + ow + padding) and (oy - padding) < y < (oy + oh + padding):
+        for obstacle in self.room.obstacles:
+            ox, oy, ow, oh, angle = normalize_obstacle(obstacle)
+            if point_in_rotated_rect(np.array([x, y]), ox, oy, ow, oh, angle, inflate=padding):
                 return True
+
         for (cx, cy, radius) in self.room.circle_obstacles:
             if np.sqrt((x - cx) ** 2 + (y - cy) ** 2) < radius + padding:
                 return True
+
         return False
 
     def get_neighbors(self, boid, radius=50.0):
