@@ -8,8 +8,8 @@ import pygame.gfxdraw
 import time
 from boids.geometry import normalize_obstacle, get_rect_corners
 
-DEBUG_COLLISIONS = True
-DEBUG_PERF = True   # ose False, kur ta mbyllësh testimin
+DEBUG_COLLISIONS = False
+DEBUG_PERF = False
 
 sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), '..')))
 PROJECT_ROOT = os.path.abspath(os.path.join(os.path.dirname(__file__), '..'))
@@ -411,11 +411,11 @@ def main():
                     if event.key == pygame.K_q:
                         custom_obstacles[-1] = (ox, oy, ow, oh, angle - np.radians(5))
                         if DEBUG_COLLISIONS:
-                            print(f"[ROTATE] pengesa e fundit -> {np.degrees(custom_obstacles[-1][4]):.0f}°")
+                            pass # print(f"[ROTATE] pengesa e fundit -> {np.degrees(custom_obstacles[-1][4]):.0f}°")
                     elif event.key == pygame.K_e:
                         custom_obstacles[-1] = (ox, oy, ow, oh, angle + np.radians(5))
                         if DEBUG_COLLISIONS:
-                            print(f"[ROTATE] pengesa e fundit -> {np.degrees(custom_obstacles[-1][4]):.0f}°")
+                            pass # print(f"[ROTATE] pengesa e fundit -> {np.degrees(custom_obstacles[-1][4]):.0f}°")
 
             if event.type == pygame.MOUSEBUTTONUP:
                 if dragging_from is not None and in_sim_area:
@@ -575,7 +575,7 @@ def main():
 
         draw_time = time.perf_counter() - draw_start
         if DEBUG_PERF and simulation is not None:
-            print(f"[PERF-RENDER] step={step_time * 1000:.1f}ms draw={draw_time * 1000:.1f}ms")
+            pass # print(f"[PERF-RENDER] step={step_time * 1000:.1f}ms draw={draw_time * 1000:.1f}ms")
         pygame.display.flip()
         clock.tick(FPS)
 
