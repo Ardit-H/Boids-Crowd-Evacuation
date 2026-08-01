@@ -5,6 +5,9 @@ import os
 import ctypes
 import ctypes.wintypes
 import pygame.gfxdraw
+from boids.geometry import normalize_obstacle, get_rect_corners
+
+DEBUG_COLLISIONS = False
 
 sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), '..')))
 PROJECT_ROOT = os.path.abspath(os.path.join(os.path.dirname(__file__), '..'))
@@ -160,8 +163,14 @@ def determine_wall_side(mouse_pos, sim_width, sim_height, edge_margin=30):
 
 
 def draw_obstacles_from_list(screen, obstacles):
-    for (ox, oy, ow, oh) in obstacles:
-        pygame.draw.rect(screen, OBSTACLE_COLOR, (ox, oy, ow, oh))
+    for obstacle in obstacles:
+        ox, oy, ow, oh, angle = normalize_obstacle(obstacle)
+        if angle == 0.0:
+            pygame.draw.rect(screen, OBSTACLE_COLOR, (ox, oy, ow, oh))
+        else:
+            corners = get_rect_corners(ox, oy, ow, oh, angle)
+            points = [(int(x), int(y)) for x, y in corners]
+            pygame.draw.polygon(screen, OBSTACLE_COLOR, points)
 
 def draw_circle_obstacles_from_list(screen, circles):
     for (cx, cy, radius) in circles:
@@ -392,6 +401,20 @@ def main():
                             simulation = None
                             running_sim = False
 
+            if event.type == pygame.KEYDOWN:
+                if placement_mode == "obstacle" and len(custom_obstacles) > 0:
+                    simulation, running_sim = sync_from_simulation_if_active(
+                        simulation, custom_exits, custom_obstacles, custom_circle_obstacles)
+                    ox, oy, ow, oh, angle = normalize_obstacle(custom_obstacles[-1])
+                    if event.key == pygame.K_q:
+                        custom_obstacles[-1] = (ox, oy, ow, oh, angle - np.radians(5))
+                        if DEBUG_COLLISIONS:
+                            print(f"[ROTATE] pengesa e fundit -> {np.degrees(custom_obstacles[-1][4]):.0f}°")
+                    elif event.key == pygame.K_e:
+                        custom_obstacles[-1] = (ox, oy, ow, oh, angle + np.radians(5))
+                        if DEBUG_COLLISIONS:
+                            print(f"[ROTATE] pengesa e fundit -> {np.degrees(custom_obstacles[-1][4]):.0f}°")
+
             if event.type == pygame.MOUSEBUTTONUP:
                 if dragging_from is not None and in_sim_area:
                     if placement_mode == "obstacle":
@@ -400,7 +423,7 @@ def main():
                         ox, oy = min(x1, x2), min(y1, y2)
                         ow, oh = abs(x2 - x1), abs(y2 - y1)
                         if ow > 5 and oh > 5:
-                            custom_obstacles.append((ox, oy, ow, oh))
+                            custom_obstacles.append((ox, oy, ow, oh, 0.0))
 
                     elif placement_mode == "circle":
                         cx, cy = dragging_from
@@ -533,7 +556,8 @@ def main():
             hint = small_font.render("Klikoni mbi hapësirën për derë", True, MODE_ACTIVE_COLOR)
             screen.blit(hint, (px, info_y + 45))
         elif placement_mode == "obstacle":
-            hint = small_font.render("Zvarritni për pengesë", True, MODE_ACTIVE_COLOR)
+            hint = small_font.render("Zvarritni | Q/E: rrotullo të fundit",
+                                     True, MODE_ACTIVE_COLOR)
             screen.blit(hint, (px, info_y + 45))
 
         if simulation is not None:
