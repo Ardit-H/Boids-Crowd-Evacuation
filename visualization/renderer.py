@@ -245,6 +245,7 @@ def main():
 
     SIM_WIDTH = WIDTH - PANEL_WIDTH
     SIM_HEIGHT = HEIGHT
+    print(f"WIDTH={WIDTH} HEIGHT={HEIGHT}")
     clock = pygame.time.Clock()
     font = pygame.font.SysFont("Arial", 15)
     small_font = pygame.font.SysFont("Arial", 12)
@@ -280,19 +281,19 @@ def main():
         [("40 boid (ulët)", 40), ("80 boid (mesatar)", 80), ("150 boid (lartë)", 150)])
     density_buttons[1].selected = True
 
-    door_mode_btn = Button(px, 300, bw, 32, "🚪 Vendos Dyer (klikim)", "door")
-    obstacle_mode_btn = Button(px, 336, bw, 32, "▦ Pengesë Drejtk. (zvarrit)", "obstacle")
-    circle_mode_btn = Button(px, 372, bw, 32, "● Pengesë Rrethore (zvarrit)", "circle")
-    clear_doors_btn = Button(px, 412, bw, 26, "Pastro Dyert", "clear_doors")
-    clear_obstacles_btn = Button(px, 442, bw, 26, "Pastro Pengesat", "clear_obstacles")
-    delete_door_btn = Button(px, 472, bw, 26, "Fshij Derë (klikim)", "delete_door")
-    delete_obstacle_btn = Button(px, 502, bw, 26, "Fshij Pengesë (klikim)", "delete_obstacle")
-    start_button = Button(px, 534, bw, 38, "▶  Fillo Simulimin", None)
-    graph_button = Button(px, 580, bw, 38, "📊  Shfaq Grafikun", None)
+    door_mode_btn = Button(px, 270, bw, 28, "🚪 Vendos Dyer (klikim)", "door")
+    obstacle_mode_btn = Button(px, 302, bw, 28, "▦ Pengesë Drejtk. (zvarrit)", "obstacle")
+    circle_mode_btn = Button(px, 334, bw, 28, "● Pengesë Rrethore (zvarrit)", "circle")
+    clear_doors_btn = Button(px, 366, bw, 22, "Pastro Dyert", "clear_doors")
+    clear_obstacles_btn = Button(px, 392, bw, 22, "Pastro Pengesat", "clear_obstacles")
+    delete_door_btn = Button(px, 418, bw, 22, "Fshij Derë (klikim)", "delete_door")
+    delete_obstacle_btn = Button(px, 444, bw, 22, "Fshij Pengesë (klikim)", "delete_obstacle")
+    start_button = Button(px, 474, bw, 32, "▶  Fillo Simulimin", None)
+    graph_button = Button(px, 510, bw, 32, "📊  Shfaq Grafikun", None)
 
-    wall_mode_btn = Button(px, 582, bw, 28, "✏️ Vizato Mur (klikim)", "wall")
-    wall_door_mode_btn = Button(px, 612, bw, 28, "🚪 Dyer në Mur (klikim)", "wall_door")
-    clear_walls_btn = Button(px, 642, bw, 24, "Pastro Murin e Personalizuar", "clear_walls")
+    wall_mode_btn = Button(px, 550, bw, 24, "✏️ Vizato Mur (klikim)", "wall")
+    wall_door_mode_btn = Button(px, 578, bw, 24, "🚪 Dyer në Mur (klikim)", "wall_door")
+    clear_walls_btn = Button(px, 606, bw, 20, "Pastro Murin e Personalizuar", "clear_walls")
 
     selection_groups = [width_buttons, density_buttons]
 
@@ -634,7 +635,7 @@ def main():
         if simulation is not None and simulation.is_finished():
             graph_button.draw(screen, font, mouse_pos)
 
-        info_y = 690
+        info_y = 636
         if use_custom_room and room_closed:
             door_count = len(wall_doors)
         else:
@@ -646,18 +647,18 @@ def main():
 
         if placement_mode == "door":
             hint = small_font.render("Klikoni mbi hapësirën për derë", True, MODE_ACTIVE_COLOR)
-            screen.blit(hint, (px, info_y + 45))
+            screen.blit(hint, (px, info_y + 38))
         elif placement_mode == "obstacle":
             hint = small_font.render("Zvarritni | Q/E: rrotullo të fundit",
                                      True, MODE_ACTIVE_COLOR)
-            screen.blit(hint, (px, info_y + 45))
+            screen.blit(hint, (px, info_y + 38))
 
         if simulation is not None:
             remaining = len(simulation.boids)
             status_text = f"Aktivë: {remaining}   Koha: {simulation.time_elapsed}"
-            screen.blit(font.render(status_text, True, TEXT_COLOR), (px, 770))
+            screen.blit(font.render(status_text, True, TEXT_COLOR), (px, info_y + 80))
             if simulation.is_finished():
-                screen.blit(font.render("✓ Evakuimi përfundoi!", True, EXIT_COLOR), (px, 682))
+                screen.blit(font.render("✓ Evakuimi përfundoi!", True, EXIT_COLOR), (px, info_y + 58))
 
         draw_time = time.perf_counter() - draw_start
         if DEBUG_PERF and simulation is not None:
