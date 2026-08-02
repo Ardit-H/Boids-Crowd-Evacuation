@@ -136,10 +136,10 @@ def exit_spec_to_point(side, pos, width, height):
         return (width, pos)
 
 
-def draw_exits_from_specs(screen, exit_specs, exit_width, sim_width, sim_height, thickness=6):
+def draw_exits_from_specs(screen, exit_specs, sim_width, sim_height, thickness=6):
     """Vizaton daljet duke përshtatur orientimin (horizontal/vertikal) sipas anës."""
-    half = exit_width / 2
-    for (side, pos) in exit_specs:
+    for (side, pos, width) in exit_specs:
+        half = width / 2
         if side in ("top", "bottom"):
             y = 0 if side == "top" else sim_height
             pygame.draw.line(screen, EXIT_COLOR, (pos - half, y), (pos + half, y), thickness)
@@ -195,9 +195,17 @@ def draw_circle_obstacles_from_list(screen, circles):
 def sync_from_simulation_if_active(simulation, custom_exits, custom_obstacles,
                                     custom_circle_obstacles):
     if simulation is not None:
-        custom_exits[:] = list(simulation.environment.exit_specs)
-        custom_obstacles[:] = list(simulation.environment.obstacles)
-        custom_circle_obstacles[:] = list(simulation.environment.circle_obstacles)
+        # Kap gjendjen aktuale mbrapa te "custom_*" pavarësisht cilit
+        # lloj simulimi po vraponte (dhomë 4-mure ose poligon).
+        if isinstance(simulation, PolygonSimulation):
+            custom_obstacles[:] = list(simulation.room.obstacles)
+            custom_circle_obstacles[:] = list(simulation.room.circle_obstacles)
+            # Dyert e poligonit s'i shtojmë te custom_exits (ai është
+            # vetëm për dhomën me 4 mure) - i lëmë siç janë.
+        else:
+            custom_exits[:] = list(simulation.environment.exit_specs)
+            custom_obstacles[:] = list(simulation.environment.obstacles)
+            custom_circle_obstacles[:] = list(simulation.environment.circle_obstacles)
         return None, False
     return simulation, None
 
@@ -245,7 +253,7 @@ def main():
     # --- Gjendja e konfigurimit. ---
     selected_width = 15.0
     selected_density = 80
-    custom_exits = [("top", SIM_WIDTH / 2)]   # default: 1 derë në mes të murit sipër.
+    custom_exits = [("top", SIM_WIDTH / 2, 15.0)]   # default: 1 derë në mes të murit sipër.
     custom_obstacles = []                      # default: pa pengesa.
     custom_circle_obstacles = []  # default: pa pengesa rrethore.
 
@@ -277,9 +285,10 @@ def main():
     circle_mode_btn = Button(px, 372, bw, 32, "● Pengesë Rrethore (zvarrit)", "circle")
     clear_doors_btn = Button(px, 412, bw, 26, "Pastro Dyert", "clear_doors")
     clear_obstacles_btn = Button(px, 442, bw, 26, "Pastro Pengesat", "clear_obstacles")
-
-    start_button = Button(px, 490, bw, 38, "▶  Fillo Simulimin", None)
-    graph_button = Button(px, 536, bw, 38, "📊  Shfaq Grafikun", None)
+    delete_door_btn = Button(px, 472, bw, 26, "Fshij Derë (klikim)", "delete_door")
+    delete_obstacle_btn = Button(px, 502, bw, 26, "Fshij Pengesë (klikim)", "delete_obstacle")
+    start_button = Button(px, 534, bw, 38, "▶  Fillo Simulimin", None)
+    graph_button = Button(px, 580, bw, 38, "📊  Shfaq Grafikun", None)
 
     wall_mode_btn = Button(px, 582, bw, 28, "✏️ Vizato Mur (klikim)", "wall")
     wall_door_mode_btn = Button(px, 612, bw, 28, "🚪 Dyer në Mur (klikim)", "wall_door")
@@ -302,10 +311,10 @@ def main():
 
             if event.type == pygame.MOUSEBUTTONDOWN:
                 # Klikime brenda zonës së simulimit (placement).
-                if in_sim_area and placement_mode == "door":
+                if in_sim_area and placement_mode == "door" and not (use_custom_room and room_closed):
                     result = determine_wall_side(mouse_pos, SIM_WIDTH, SIM_HEIGHT)
                     if result is not None:
-                        custom_exits.append(result)
+                        custom_exits.append((result[0], result[1], selected_width))
 
                 # Pengesë drejtkëndëshe - regjistron vetëm pikën e fillimit,
                 # madhësia përcaktohet në MOUSEBUTTONUP (drag).
@@ -348,6 +357,39 @@ def main():
                                                       np.array(wall_vertices[best_seg]))
                         wall_doors.append((best_seg, best_t, selected_width / 2))
 
+                elif in_sim_area and placement_mode == "delete_obstacle":
+                    mx, my = mouse_pos
+                    removed = False
+                    for i, obstacle in enumerate(custom_obstacles):
+                        ox, oy, ow, oh = obstacle[:4]
+                        if ox <= mx <= ox + ow and oy <= my <= oy + oh:
+                            del custom_obstacles[i]
+                            removed = True
+                            break
+                    if not removed:
+                        for i, (cx, cy, radius) in enumerate(custom_circle_obstacles):
+                            if (mx - cx) ** 2 + (my - cy) ** 2 <= radius ** 2:
+                                del custom_circle_obstacles[i]
+                                break
+
+                elif in_sim_area and placement_mode == "delete_door":
+                    mx, my = mouse_pos
+                    if use_custom_room and room_closed:
+                        for i, (seg_idx, t_center, half_width) in enumerate(wall_doors):
+                            n = len(wall_vertices)
+                            a = np.array(wall_vertices[seg_idx])
+                            b = np.array(wall_vertices[(seg_idx + 1) % n])
+                            center = a + t_center * (b - a)
+                            if np.linalg.norm(np.array(mouse_pos) - center) < half_width + 10:
+                                del wall_doors[i]
+                                break
+                    else:
+                        for i, (side, pos, width) in enumerate(custom_exits):
+                            px_, py_ = exit_spec_to_point(side, pos, SIM_WIDTH, SIM_HEIGHT)
+                            if np.linalg.norm(np.array(mouse_pos) - np.array([px_, py_])) < width / 2 + 10:
+                                del custom_exits[i]
+                                break
+
                 elif not in_sim_area:
                     # Klikime te paneli (butona).
                     for group in selection_groups:
@@ -364,7 +406,7 @@ def main():
                         if btn.selected:
                             selected_density = btn.value
 
-                    if door_mode_btn.is_clicked(mouse_pos):
+                    if door_mode_btn.is_clicked(mouse_pos) and not (use_custom_room and room_closed):
                         simulation, running_sim = sync_from_simulation_if_active(
                             simulation, custom_exits, custom_obstacles, custom_circle_obstacles)
                         placement_mode = None if placement_mode == "door" else "door"
@@ -380,11 +422,20 @@ def main():
                         simulation, running_sim = sync_from_simulation_if_active(
                             simulation, custom_exits, custom_obstacles, custom_circle_obstacles)
                         custom_exits = []
+                        wall_doors = []
                     if clear_obstacles_btn.is_clicked(mouse_pos):
                         simulation, running_sim = sync_from_simulation_if_active(
                             simulation, custom_exits, custom_obstacles, custom_circle_obstacles)
                         custom_obstacles = []
                         custom_circle_obstacles = []
+                    if delete_door_btn.is_clicked(mouse_pos):
+                        simulation, running_sim = sync_from_simulation_if_active(
+                            simulation, custom_exits, custom_obstacles, custom_circle_obstacles)
+                        placement_mode = None if placement_mode == "delete_door" else "delete_door"
+                    if delete_obstacle_btn.is_clicked(mouse_pos):
+                        simulation, running_sim = sync_from_simulation_if_active(
+                            simulation, custom_exits, custom_obstacles, custom_circle_obstacles)
+                        placement_mode = None if placement_mode == "delete_obstacle" else "delete_obstacle"
 
                     # Fillon simulimin - degëzohet sipas asaj nëse përdoruesi ka
                     # ndërtuar mur të personalizuar (PolygonSimulation) apo përdor
@@ -500,14 +551,13 @@ def main():
             for boid in simulation.boids:
                 draw_boid(screen, boid)
         elif simulation is not None:
-            draw_exits_from_specs(screen, simulation.environment.exit_specs,
-                                  simulation.environment.exit_width, SIM_WIDTH, SIM_HEIGHT)
+            draw_exits_from_specs(screen, simulation.environment.exit_specs, SIM_WIDTH, SIM_HEIGHT)
             draw_obstacles_from_list(screen, simulation.environment.obstacles)
             draw_circle_obstacles_from_list(screen, simulation.environment.circle_obstacles)
             for boid in simulation.boids:
                 draw_boid(screen, boid)
         else:
-            draw_exits_from_specs(screen, custom_exits, selected_width, SIM_WIDTH, SIM_HEIGHT)
+            draw_exits_from_specs(screen, custom_exits, SIM_WIDTH, SIM_HEIGHT)
             draw_obstacles_from_list(screen, custom_obstacles)
             draw_circle_obstacles_from_list(screen, custom_circle_obstacles)
 
@@ -570,7 +620,10 @@ def main():
                              MODE_ACTIVE_COLOR if placement_mode == "circle" else None)
         clear_doors_btn.draw(screen, small_font, mouse_pos)
         clear_obstacles_btn.draw(screen, small_font, mouse_pos)
-
+        delete_door_btn.draw(screen, small_font, mouse_pos,
+                             MODE_ACTIVE_COLOR if placement_mode == "delete_door" else None)
+        delete_obstacle_btn.draw(screen, small_font, mouse_pos,
+                                 MODE_ACTIVE_COLOR if placement_mode == "delete_obstacle" else None)
         wall_mode_btn.draw(screen, small_font, mouse_pos,
                            MODE_ACTIVE_COLOR if placement_mode == "wall" else None)
         wall_door_mode_btn.draw(screen, small_font, mouse_pos,
@@ -582,8 +635,14 @@ def main():
             graph_button.draw(screen, font, mouse_pos)
 
         info_y = 690
-        screen.blit(small_font.render(f"Dyer: {len(custom_exits)}", True, TEXT_COLOR), (px, info_y))
-        screen.blit(small_font.render(f"Pengesa: {len(custom_obstacles)}", True, TEXT_COLOR), (px, info_y + 20))
+        if use_custom_room and room_closed:
+            door_count = len(wall_doors)
+        else:
+            door_count = len(custom_exits)
+        screen.blit(small_font.render(f"Dyer: {door_count}", True, TEXT_COLOR), (px, info_y))
+
+        total_obstacles = len(custom_obstacles) + len(custom_circle_obstacles)
+        screen.blit(small_font.render(f"Pengesa: {total_obstacles}", True, TEXT_COLOR), (px, info_y + 20))
 
         if placement_mode == "door":
             hint = small_font.render("Klikoni mbi hapësirën për derë", True, MODE_ACTIVE_COLOR)

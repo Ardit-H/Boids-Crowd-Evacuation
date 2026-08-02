@@ -15,7 +15,7 @@ class FlowField:
     shmangies (obstacle_avoidance_force).
     """
 
-    def __init__(self, width, height, obstacles, exit_specs, exit_width,
+    def __init__(self, width, height, obstacles, exit_specs,
                  cell_size=20, blocked_inflate=8.0,
                  wall_avoid_radius=40.0, wall_penalty_weight=5.0,
                  circle_obstacles=None):
@@ -31,7 +31,7 @@ class FlowField:
         self.wall_avoid_radius = wall_avoid_radius
         self.wall_penalty_weight = wall_penalty_weight
 
-        source_cells = self._find_exit_cells(exit_specs, exit_width)
+        source_cells = self._find_exit_cells(exit_specs)
         self.distance = self._weighted_dijkstra(source_cells)
         self.direction = self._compute_directions()
 
@@ -86,15 +86,16 @@ class FlowField:
 
         return blocked
 
-    def _find_exit_cells(self, exit_specs, exit_width):
+    def _find_exit_cells(self, exit_specs):
         """
-        Gjen qelizat e grid-it që korrespondojnë me çdo derë, në
-        çdo nga 4 anët e dhomës (jo vetëm murin e sipërm).
+        Gjen qelizat e grid-it që korrespondojnë me çdo derë, tani në
+        çdo nga 4 anët e dhomës (jo vetëm murin e sipërm). Çdo derë ka
+        tani gjerësinë e vet (brenda exit_specs), jo një gjerësi globale.
         """
         sources = []
-        half = exit_width / 2
 
-        for (side, pos) in exit_specs:
+        for (side, pos, width) in exit_specs:
+            half = width / 2
             if side == "top":
                 row = 0
                 col0 = max(0, int((pos - half) // self.cell_size))

@@ -47,21 +47,31 @@ class Environment:
         # muri i sipërm.
         self.exit_specs = []
         for item in exits:
-            side, pos = item
-            if isinstance(side, str):
-                self.exit_specs.append((side, float(pos)))
+            if len(item) == 3:
+                side, pos, door_width = item
+                if isinstance(side, str):
+                    self.exit_specs.append((side, float(pos), float(door_width)))
+                else:
+                    # Formati i vjetër: (x, y) -> supozo murin e sipërm.
+                    self.exit_specs.append(("top", float(side), float(door_width)))
             else:
-                # Formati i vjetër: (x, y) -> supozo murin e sipërm.
-                self.exit_specs.append(("top", float(side)))
+                side, pos = item
+                if isinstance(side, str):
+                    self.exit_specs.append((side, float(pos), float(exit_width)))
+                else:
+                    self.exit_specs.append(("top", float(side), float(exit_width)))
 
         # Pikat aktuale (x, y) të çdo dere - përdoren për distanca/fallback.
+        # _exit_point kërkon gjerësinë/lartësinë e VETË DHOMËS (për anën
+        # "right"), jo gjerësinë e derës - prandaj self.width/self.height,
+        # jo variablën e loop-it.
         self.exits = [
-            np.array(_exit_point(side, pos, width, height), dtype=float)
-            for (side, pos) in self.exit_specs
+            np.array(_exit_point(side, pos, self.width, self.height), dtype=float)
+            for (side, pos, door_width) in self.exit_specs
         ]
 
         self.flow_field = FlowField(width, height, self.obstacles,
-                                    self.exit_specs, exit_width,
+                                    self.exit_specs,
                                     circle_obstacles=self.circle_obstacles)
 
     def nearest_exit(self, position):
@@ -93,9 +103,8 @@ class Environment:
         sepse seek_exit ngadalëson boid-in ndërsa afrohet (arrival behavior).
         """
         x, y = position
-        half = self.exit_width / 2 + 6
-
-        for (side, pos) in self.exit_specs:
+        for (side, pos, width) in self.exit_specs:
+            half = width / 2 + 6
             if side == "top" and abs(x - pos) < half and y < 10:
                 return True
             elif side == "bottom" and abs(x - pos) < half and y > self.height - 10:
@@ -253,32 +262,31 @@ class Environment:
         fortë KUDO përveç saktësisht brenda gjerësisë së një dere të
         vendosur në atë anë specifike.
         """
-        half = self.exit_width / 2
         x, y = boid.position
 
         if x < 0:
-            near_door = any(side == "left" and abs(y - pos) < half
-                             for side, pos in self.exit_specs)
+            near_door = any(side == "left" and abs(y - pos) < width / 2
+                            for side, pos, width in self.exit_specs)
             if not near_door:
                 boid.position[0] = 0
                 boid.velocity[0] = abs(boid.velocity[0])
         elif x > self.width:
-            near_door = any(side == "right" and abs(y - pos) < half
-                             for side, pos in self.exit_specs)
+            near_door = any(side == "right" and abs(y - pos) < width / 2
+                            for side, pos, width in self.exit_specs)
             if not near_door:
                 boid.position[0] = self.width
                 boid.velocity[0] = -abs(boid.velocity[0])
 
         if y < 0:
-            near_door = any(side == "top" and abs(x - pos) < half
-                             for side, pos in self.exit_specs)
+            near_door = any(side == "top" and abs(x - pos) < width / 2
+                            for side, pos, width in self.exit_specs)
             if not near_door:
                 boid.position[1] = 0
                 if boid.velocity[1] < 0:
                     boid.velocity[1] = 0
         elif y > self.height:
-            near_door = any(side == "bottom" and abs(x - pos) < half
-                             for side, pos in self.exit_specs)
+            near_door = any(side == "bottom" and abs(x - pos) < width / 2
+                            for side, pos, width in self.exit_specs)
             if not near_door:
                 boid.position[1] = self.height
                 if boid.velocity[1] > 0:
