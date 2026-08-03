@@ -1,0 +1,30 @@
+{
+  "Poligon - drejtkëndësh (kontroll)": {
+    "num_boids": 80,
+    "vertices": [[0, 0], [900, 0], [900, 700], [0, 700]],
+    "doors": [[0, 0.5, 7.5]],
+    "obstacles": [],
+    "exit_width": 15.0
+  },
+  "Poligon - L-formë": {
+    "num_boids": 80,
+    "vertices": [[0, 0], [900, 0], [900, 400], [500, 400], [500, 700], [0, 700]],
+    "doors": [[0, 0.5, 7.5]],
+    "obstacles": [],
+    "exit_width": 15.0
+  },
+  "Poligon - korridor i ngushtë": {
+    "num_boids": 80,
+    "vertices": [[0, 0], [900, 0], [900, 700], [0, 700]],
+    "doors": [[0, 0.5, 7.5]],
+    "obstacles": [[0, 0, 900, 250], [0, 450, 900, 250]],
+    "exit_width": 15.0
+  },
+  "Poligon - trekëndësh i parregullt": {
+    "num_boids": 80,
+    "vertices": [[0, 0], [900, 200], [400, 700]],
+    "doors": [[0, 0.5, 7.5]],
+    "obstacles": [],
+    "exit_width": 15.0
+  }
+}
