@@ -17,7 +17,7 @@ class Simulation:
                  exit_width=15.0, circle_obstacles=None,
                  separation_weight=1.5,
                  alignment_weight=1.0,
-                 cohesion_weight_open=0.05,
+                 cohesion_weight_open=0.03,
                  cohesion_weight_near_obstacle=1.0,
                  obstacle_proximity_threshold=45.0,
                  exit_weight=1.2,
@@ -184,12 +184,12 @@ class Simulation:
 
             if DEBUG_PERF:
                 self._perf_timers["neighbors"] += (t1 - t0)
-                self._perf_timers["sep_align"] += (t1b - t1)  # ri-emërtuar
-                self._perf_timers["pathfinding"] += (t2 - t1b)  # tani vetëm waypoint lookup
-                self._perf_timers["seek_exit"] += (t2a - t2)  # NEW
-                self._perf_timers["obstacle_dist"] += (t2b - t2a)  # tani vetëm distance_to_nearest_obstacle
+                self._perf_timers["sep_align"] += (t1b - t1)
+                self._perf_timers["pathfinding"] += (t2 - t1b)
+                self._perf_timers["seek_exit"] += (t2a - t2)
+                self._perf_timers["obstacle_dist"] += (t2b - t2a)
                 self._perf_timers["cohesion"] += (t2b2 - t2b)  # NEW
-                self._perf_timers["obstacle_avoid"] += (t2c - t2b2)  # tani vetëm obstacle_avoidance_force
+                self._perf_timers["obstacle_avoid"] += (t2c - t2b2)
                 self._perf_timers["other_forces"] += (t3 - t2c)
                 self._perf_timers["collisions"] += (t4 - t3)
                 self._perf_timers["boundaries"] += (t5 - t4)
