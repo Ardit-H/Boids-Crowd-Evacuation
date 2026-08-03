@@ -65,5 +65,53 @@
     "exits": [[450, 0]],
     "obstacles": [[400, 150, 100, 40, 0.5236]],
     "exit_width": 15.0
+  },
+  "1 derë - pengesë e vogël": {
+    "num_boids": 80,
+    "exits": [[450, 0]],
+    "obstacles": [[420, 150, 60, 30]],
+    "exit_width": 15.0
+  },
+  "1 derë - pengesë e madhe": {
+    "num_boids": 80,
+    "exits": [[450, 0]],
+    "obstacles": [[350, 150, 200, 60]],
+    "exit_width": 15.0
+  },
+  "150 boid - me pengesë": {
+    "num_boids": 150,
+    "exits": [[450, 0]],
+    "obstacles": [[410, 150, 80, 40]],
+    "exit_width": 15.0
+  },
+  "40 boid - me pengesë": {
+    "num_boids": 40,
+    "exits": [[450, 0]],
+    "obstacles": [[410, 150, 80, 40]],
+    "exit_width": 15.0
+  },
+  "1 derë - në cep": {
+    "num_boids": 80,
+    "exits": [[50, 0]],
+    "obstacles": [],
+    "exit_width": 15.0
+  },
+  "1 derë - pengesë 15°": {
+    "num_boids": 80,
+    "exits": [[450, 0]],
+    "obstacles": [[400, 150, 100, 40, 0.2618]],
+    "exit_width": 15.0
+  },
+  "1 derë - pengesë 45°": {
+    "num_boids": 80,
+    "exits": [[450, 0]],
+    "obstacles": [[400, 150, 100, 40, 0.7854]],
+    "exit_width": 15.0
+  },
+  "1 derë - pengesë 90°": {
+    "num_boids": 80,
+    "exits": [[450, 0]],
+    "obstacles": [[400, 150, 100, 40, 1.5708]],
+    "exit_width": 15.0
   }
 }
