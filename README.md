@@ -1,10 +1,11 @@
 # Boids Crowd Evacuation
 
-Simulim i evakuimit të turmave bazuar në modelin **Boids** (Craig Reynolds, 1986) të kombinuar me **pathfinding Dijkstra multi-burim (flow field)**, të ndërtuar në Python me `pygame`. Projekti është zhvilluar si temë diplome, me fokus te modelimi i sjelljes së turmës drejt daljeve të emergjencës, në hapësira me forma dhe pengesa të ndryshme.
+Simulim i evakuimit të turmave bazuar në modelin **Boids** (Craig Reynolds, 1986) i kombinuar me **pathfinding Dijkstra multi-burim (flow field)**, i ndërtuar në Python me `pygame`. Projekti është zhvilluar si temë diplome, me fokus te modelimi i sjelljes së turmës drejt daljeve të emergjencës, në hapësira me forma dhe pengesa të ndryshme.
 
 ## Përmbajtja
 
 - [Përshkrimi](#përshkrimi)
+- [Pamje nga aplikacioni](#pamje-nga-aplikacioni)
 - [Veçoritë](#veçoritë)
 - [Instalimi](#instalimi)
 - [Përdorimi](#përdorimi)
@@ -21,8 +22,26 @@ Aplikacioni simulon lëvizjen e një turme (agjentë/"boids") drejt daljeve të 
 - **Rregullat klasike të Boids**: *separation* (largim nga fqinjët e afërt), *alignment* (përafrim me drejtimin e fqinjëve), *cohesion* (tërheqje drejt qendrës lokale të grupit).
 - **Pathfinding me Dijkstra multi-burim** (flow field): çdo qelizë e hapësirës ka një drejtim të para-llogaritur drejt daljes më të afërt, duke shmangur pengesat, me kosto shtesë (jo bllokim absolut) pranë mureve, që prodhon rrugë natyrshëm larg qosheve kur është e mundur.
 - **Grid hapësinor (spatial grid)** për kërkim O(n) të fqinjëve, në vend të O(n²) — kritik për densitete të larta boid-esh pa rënie të performancës.
-- **Forca dinamike kohezioni**: e ulët në hapësirë të hapur, e lartë pranë pengesave — parandalon "shpërndarjen" e panatyrshme të grupit larg njëri-tjetrit teksa manovron rreth pengesave.
+- **Forcë dinamike kohezioni**: e ulët në hapësirë të hapur, e lartë pranë pengesave — parandalon "shpërndarjen" e panatyrshme të grupit larg njëri-tjetrit teksa manovron rreth pengesave.
 - **Zbulim dhe zgjidhje "ngërçi"**: agjentët që mbeten të bllokuar (pa progres real drejt daljes për N frame) marrin një impuls korrigjues, jo zëvendësim total të shpejtësisë.
+
+## Pamje nga aplikacioni
+
+**Ekrani fillestar** (dhomë standarde, dera e vetme default lart, paneli i kontrollit):
+
+![Ekrani fillestar](docs/screenshots/ekrani-fillestar.png)
+
+**Simulim aktiv** (dhomë standarde me 5 dyer dhe 4 pengesa — drejtkëndëshe, e rrotulluar, dhe rrethore):
+
+![Simulim aktiv](docs/screenshots/simulim-aktiv.png)
+
+**Dhomë me formë të lirë (poligon, L-formë) me pengesa këndore dhe rrethore**:
+
+![Dhomë poligon](docs/screenshots/dhome-poligon.png)
+
+**Histogrami i shpërndarjes së kohës së evakuimit**:
+
+![Histogrami i evakuimit](docs/screenshots/histogram-evakuimi.png)
 
 ## Veçoritë
 
@@ -64,7 +83,11 @@ matplotlib
 python -m visualization.renderer
 ```
 
-Dritarja hapet e maksimizuar (Windows). Nga paneli anësor mund të:
+Dritarja hapet e maksimizuar (Windows).
+
+> **Shënim i rëndësishëm — dera e paracaktuar**: kur hapet aplikacioni, ekziston automatikisht **1 derë e paracaktuar (default) në mes të murit të sipërm**. Nëse nuk të nevojitet aty (p.sh. do të vendosësh dyer vetë në pozicione/mure të tjera), thjesht aktivizo modalitetin "Fshij Derë" dhe kliko mbi të për ta hequr — pastaj vendos dyer të reja ku të duash (çdonjëra prej 4 mureve) përmes "🚪 Vendos Dyer".
+
+Nga paneli anësor mund të:
 
 | Butoni | Veprimi |
 |---|---|
@@ -119,6 +142,7 @@ Boids-Crowd-Evacuation/
 │   ├── verify_door_width.py                # Test i dedikuar statistikor (80 trials)
 │   └── replot.py                           # Rigjeneron grafikun nga CSV ekzistues
 ├── results/                      # Output (CSV + PNG) i gjeneruar nga xhirimet
+├── docs/screenshots/              # Figurat e përdorura te ky README
 ├── requirements.txt
 └── README.md
 ```
@@ -155,4 +179,4 @@ Rezultatet e plota (CSV + interpretim statistikor) ndodhen te `results/` dhe jan
 
 ## Kontekst akademik
 
-Ky repository përmban implementimin praktik të temës së diplomës *"Simulim i evakuimit të turmave duke përdorur modelin Boids dhe pathfinding Dijkstra"*. Metodologjia e testimit (batch runs të shumëfishta, verifikim statistikor i confound-eve) është dokumentuar në detaje te kapitulli i rezultateve/diskutimit të tezës.
+Ky repository përmban implementimin praktik të temës së diplomës *"Zhvillimi i aplikacionit për simulimin dhe optimizimin e lëvizjes së turmave në raste emergjente"*, Universiteti i Prishtinës. Metodologjia e testimit (batch runs të shumëfishta, verifikim statistikor i confound-eve) është dokumentuar në detaje te kapitulli i rezultateve/diskutimit të tezës.
