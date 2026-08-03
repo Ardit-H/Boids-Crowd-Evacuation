@@ -15,14 +15,15 @@ from analysis.metrics import summarize_evacuation, plot_config_comparison
 
 
 def run_headless_simulation(num_boids, width, height, exits, obstacles=None,
-                             exit_width=15.0, max_steps=2000):
+                             exit_width=15.0, circle_obstacles=None, max_steps=2000):
     """
     Ekzekuton një simulim TË VETËM pa vizualizim (headless). Kthen
     listën e kohëve të evakuimit (frame) për çdo boid që doli, ose
     e ndërpret te max_steps nëse disa boid mbeten të ngërçuar
     pafundësisht (mbrojtje kundër loop-eve të pafund në batch runs).
     """
-    simulation = Simulation(num_boids, width, height, exits, obstacles, exit_width)
+    simulation = Simulation(num_boids, width, height, exits, obstacles, exit_width,
+                            circle_obstacles=circle_obstacles)
 
     steps = 0
     while not simulation.is_finished() and steps < max_steps:
@@ -33,7 +34,7 @@ def run_headless_simulation(num_boids, width, height, exits, obstacles=None,
 
 
 def run_batch(config_name, num_boids, width, height, exits, obstacles=None,
-              exit_width=15.0, num_trials=30, max_steps=2000):
+              exit_width=15.0, circle_obstacles=None, num_trials=30, max_steps=2000):
     """
     Ekzekuton të njëjtin konfigurim 'num_trials' herë (me pozicione
     fillestare random të reja çdo herë), dhe mbledh statistikat
@@ -44,7 +45,8 @@ def run_batch(config_name, num_boids, width, height, exits, obstacles=None,
     results = []
     for trial in range(num_trials):
         evacuation_times = run_headless_simulation(
-            num_boids, width, height, exits, obstacles, exit_width, max_steps)
+            num_boids, width, height, exits, obstacles, exit_width,
+            circle_obstacles, max_steps)
         stats = summarize_evacuation(evacuation_times)
         stats["config"] = config_name
         stats["trial"] = trial
@@ -81,6 +83,7 @@ def main():
             cfg["exits"],
             obstacles=cfg.get("obstacles", []),
             exit_width=cfg.get("exit_width", 15.0),
+            circle_obstacles=cfg.get("circle_obstacles", []),
             num_trials=NUM_TRIALS
         )
         all_results.extend(results)

@@ -52,5 +52,18 @@
     "exits": [[450, 0]],
     "obstacles": [],
     "exit_width": 15.0
+  },
+  "1 derë - pengesë rrethore": {
+    "num_boids": 80,
+    "exits": [[450, 0]],
+    "obstacles": [],
+    "circle_obstacles": [[450, 200, 40]],
+    "exit_width": 15.0
+  },
+  "1 derë - pengesë e rrotulluar 30°": {
+    "num_boids": 80,
+    "exits": [[450, 0]],
+    "obstacles": [[400, 150, 100, 40, 0.5236]],
+    "exit_width": 15.0
   }
 }
