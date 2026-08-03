@@ -1,0 +1,50 @@
+{
+  "Kontroll i barazuar (drejtkendesh)": {
+    "num_boids": 80,
+    "vertices": [[0, 0], [826.3, 0], [826.3, 617.2], [0, 617.2]],
+    "doors": [[0, 0.5, 7.5]],
+    "obstacles": [],
+    "exit_width": 15.0,
+    "_note": "area=510000 dist_centroid_dere=308.6 (grup A)"
+  },
+  "L-forme (barazuar)": {
+    "num_boids": 80,
+    "vertices": [[0, 0], [900, 0], [900, 400], [500, 400], [500, 700], [0, 700]],
+    "doors": [[0, 0.5, 7.5]],
+    "obstacles": [],
+    "exit_width": 15.0,
+    "_note": "area=510000 dist_centroid_dere=308.6 (grup A) - identike me konfigurimin origjinal"
+  },
+  "Trekendesh (barazuar)": {
+    "num_boids": 80,
+    "vertices": [[0, 0], [1084.0, 307.9], [481.8, 1077.8]],
+    "doors": [[0, 0.5, 7.5]],
+    "obstacles": [],
+    "exit_width": 15.0,
+    "_note": "area=510000 dist_centroid_dere=308.6 (grup A) - shkallezuar afinisht nga trekendeshi origjinal"
+  },
+  "Korridor - brez i ngushte (200px)": {
+    "num_boids": 80,
+    "vertices": [[0, 0], [900, 0], [900, 700], [0, 700]],
+    "doors": [[3, 0.5, 7.5]],
+    "obstacles": [[0, 0, 900, 250], [0, 450, 900, 250]],
+    "exit_width": 15.0,
+    "_note": "free_area=180000 dist=450 density=0.000444 (grup B - origjinal)"
+  },
+  "Korridor - brez mesatar (350px)": {
+    "num_boids": 80,
+    "vertices": [[0, 0], [900, 0], [900, 700], [0, 700]],
+    "doors": [[3, 0.5, 7.5]],
+    "obstacles": [[0, 0, 900, 175], [0, 525, 900, 175]],
+    "exit_width": 15.0,
+    "_note": "free_area=315000 dist=450 density=0.000254 (grup B)"
+  },
+  "Korridor - brez i gjere (500px)": {
+    "num_boids": 80,
+    "vertices": [[0, 0], [900, 0], [900, 700], [0, 700]],
+    "doors": [[3, 0.5, 7.5]],
+    "obstacles": [[0, 0, 900, 100], [0, 600, 900, 100]],
+    "exit_width": 15.0,
+    "_note": "free_area=450000 dist=450 density=0.000178 (grup B)"
+  }
+}
