@@ -45,11 +45,18 @@ def print_summary(evacuation_times):
 
 
 def plot_evacuation_histogram(evacuation_times, title="Shpërndarja e Kohës së Evakuimit",
-                                save_path=None):
+                                save_path=None, show=True):
     """
-    Vizaton histogram dhe, nëse jepet save_path, e ruan si file .png
-    përveç që e shfaq në ekran - kështu grafiku mbetet i disponueshëm
-    edhe pas mbylljes së dritares, për ta përdorur direkt në tezë.
+    Vizaton histogram dhe, nëse jepet save_path, e ruan si file .png.
+
+    'show' kontrollon nëse thirret plt.show() (bllokues, hap event loop
+    të vet GUI - TkAgg/QtAgg). VENDOSE show=False kur ky funksion
+    thirret nga BRENDA një aplikacioni tjetër me event loop GUI (p.sh.
+    pygame) - dy event loop GUI brenda TË NJËJTIT thread/proces (p.sh.
+    Tkinter i matplotlib + SDL i pygame) shkaktojnë konflikte reale
+    (dritare bosh, madhësi të prishura). Në atë rast, thirrësi duhet ta
+    hapë vetë file-n e ruajtur (save_path) në një PROCES TË VEÇANTË -
+    shih renderer.py, ku përdoret os.startfile/'open'/'xdg-open'.
     """
     plt.figure(figsize=(8, 5))
     plt.hist(evacuation_times, bins=20, color="#4a90d9", edgecolor="black")
@@ -62,14 +69,22 @@ def plot_evacuation_histogram(evacuation_times, title="Shpërndarja e Kohës së
         plt.savefig(save_path, dpi=150)
         print(f"Grafiku u ruajt në: {save_path}")
 
-    plt.show()
+    if show:
+        plt.show()
+    else:
+        # Mbyll figurën eksplicitisht (jo plt.show()) - përndryshe
+        # mbetet e hapur në memorie pafundësisht (memory leak i vogël,
+        # por i grumbullueshëm nëse butoni klikohet shumë herë).
+        plt.close()
+
 
 def plot_config_comparison(summary_csv_path="results/batch_results_summary.csv",
                             title="Krahasimi i Kohës së Evakuimit sipas Konfigurimit",
-                            save_path=None):
+                            save_path=None, show=True):
     """
     Lexon CSV-në e përmbledhjes dhe vizaton bar chart krahasues, plus
-    e ruan si .png nëse jepet save_path.
+    e ruan si .png nëse jepet save_path. Shih shënimin te 'show' në
+    plot_evacuation_histogram - vlen njësoj këtu.
     """
     df = pd.read_csv(summary_csv_path)
 
@@ -77,7 +92,6 @@ def plot_config_comparison(summary_csv_path="results/batch_results_summary.csv",
     bars = plt.bar(df["config"], df["mean_of_means"],
                     yerr=df["std_of_means"], capsize=8,
                     color="#4a90d9", edgecolor="black")
-
 
     for bar, value, std in zip(bars, df["mean_of_means"], df["std_of_means"]):
         # Numri vendoset saktë në mes të error bar-it (mesi mes
@@ -100,4 +114,7 @@ def plot_config_comparison(summary_csv_path="results/batch_results_summary.csv",
         plt.savefig(save_path, dpi=150)
         print(f"Grafiku u ruajt në: {save_path}")
 
-    plt.show()
+    if show:
+        plt.show()
+    else:
+        plt.close()

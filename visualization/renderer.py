@@ -2,8 +2,40 @@ import pygame
 import numpy as np
 import sys
 import os
+import subprocess
 import ctypes
-import ctypes.wintypes
+
+# --- DPI AWARENESS (vetëm Windows) - PARA pygame.init(). Pa këtë,
+# Windows e trajton pygame si "jo-DPI-aware" dhe e VIZATON VETË në një
+# bitmap të brendshëm, pastaj e "stretch"-on atë për ta përshtatur me
+# shkallëzimin e ekranit (125%/150%, i zakonshëm në laptopë) - kjo
+# prodhon tekst/butona pak të turbullt. Duke i thënë Windows-it që NE
+# e menaxhojmë vetë shkallëzimin (DPI-aware), OS-i na jep piksela të
+# vërtetë 1:1, pa asnjë stretch - tekst i mprehtë gjithmonë, automatikisht,
+# pa nevojë përdoruesi ta ndryshojë vetë te Settings → Compatibility.
+# Guard-uar në try/except - thjesht s'bën asgjë në macOS/Linux (atje
+# DPI trajtohet ndryshe, në nivel OS-i, jo çështje e këtij app-i).
+try:
+    ctypes.windll.shcore.SetProcessDpiAwareness(1)  # Windows 8.1+
+except Exception:
+    try:
+        ctypes.windll.user32.SetProcessDPIAware()  # fallback Windows Vista/7
+    except Exception:
+        pass  # jo-Windows (macOS/Linux) - s'ka nevojë, skip i sigurt.
+
+# KRITIKE: forcojmë backend-in "Agg" të matplotlib PARA se të importohet
+# 'analysis.metrics' (i cili importon matplotlib.pyplot). Agg është
+# backend PURISHT raster-to-file - s'krijon ASNJË dritare/widget GUI të
+# asnjë lloji (jo Tkinter, jo Qt), kurrë. Kjo eliminon rrënjësisht
+# konfliktin që shkaktonte çmaksimizimin e papritur të dritares pygame
+# kur klikohej "Shfaq Grafikun" - shkaku ishte VETË INICIALIZIMI i
+# backend-it GUI të matplotlib (jo domosdoshmërisht plt.show() vetë),
+# i cili ndërhynte me gjendjen e window manager-it të OS-it brenda të
+# NJËJTIT proces si pygame/SDL. Kjo linjë duhet të ekzekutohet PARA çdo
+# import tjetër që prek matplotlib, prandaj është KËTU, në krye të file-it.
+import matplotlib
+matplotlib.use("Agg")
+
 import pygame.gfxdraw
 import time
 from boids.geometry import normalize_obstacle, get_rect_corners
@@ -20,10 +52,40 @@ from boids.simulation import Simulation
 from boids.polygon_simulation import PolygonSimulation
 from analysis.metrics import print_summary, plot_evacuation_histogram
 
+
+def open_file_externally(path):
+    """
+    Hap një file (p.sh. .png) me vizualizuesin DEFAULT të OS-it, NË NJË
+    PROCES KREJT TË VEÇANTË (jo-bllokues, jo brenda vetë pygame-s). Kjo
+    shmang plot_evacuation_histogram/plt.show(), i cili do të hapte
+    event loop-in e vet GUI (Tkinter) brenda TË NJËJTIT proces si SDL i
+    pygame-s - konflikt që shkaktonte dritare të prishura/bosh.
+    """
+    try:
+        if sys.platform.startswith("win"):
+            os.startfile(path)  # Windows - jo-bllokues, hap me app-in default.
+        elif sys.platform == "darwin":
+            subprocess.Popen(["open", path])  # macOS
+        else:
+            subprocess.Popen(["xdg-open", path])  # Linux
+    except Exception as e:
+        print(f"S'u hap dot {path} automatikisht ({e}). Gjendet te: {path}")
+
+
 SIM_WIDTH, SIM_HEIGHT = 900, 700
 PANEL_WIDTH = 260
 WIDTH, HEIGHT = SIM_WIDTH + PANEL_WIDTH, SIM_HEIGHT
 FPS = 60
+
+# Madhësia minimale e dritares - nën këtë, paneli s'ka vend të nxjerrë
+# butonat, kështu që SIM_WIDTH/SIM_HEIGHT kufizohen këtu (shih resize).
+MIN_WIDTH = PANEL_WIDTH + 400
+# MIN_HEIGHT=900 (jo më pak): paneli tani ka 6 kategori (me titujt e rinj
+# "Vendosja e Elementeve"/"Menaxhimi"/"Simulimi"/"Dhomë Poligon"), kështu
+# elementi i fundit (status_text, "Aktivë: X  Koha: Y") vizatohet te
+# info_y+80=773+80=853px + lartësia e tekstit - nën ~880px ai tekst bie
+# jashtë zonës së dukshme të dritares dhe pritet (cut-off).
+MIN_HEIGHT = 900
 
 BACKGROUND_COLOR = (20, 20, 30)
 PANEL_COLOR = (35, 35, 48)
@@ -186,6 +248,41 @@ def draw_circle_obstacles_from_list(screen, circles):
     for (cx, cy, radius) in circles:
         pygame.draw.circle(screen, CIRCLE_OBSTACLE_COLOR, (int(cx), int(cy)), int(radius))
 
+
+def compute_dynamic_min(wall_vertices, custom_exits, panel_width,
+                         base_min_width, base_min_height, margin=10):
+    """
+    Llogarit minimumin EFEKTIV të dritares - rritet aq sa duhet që:
+    1) poligoni i plotë (wall_vertices, nëse ka) të mbetet gjithmonë
+       brenda zonës së simulimit (jo i mbivendosur nga paneli), DHE
+    2) çdo derë e dhomës standarde (custom_exits) të mbetet e plotë e
+       dukshme brenda kufijve - derë "top"/"bottom" kërkon SIM_WIDTH të
+       mjaftueshëm (pos+gjysmëgjerësia), derë "left"/"right" kërkon
+       SIM_HEIGHT të mjaftueshëm (pos+gjysmëgjerësia).
+    Nëse s'ka as poligon as dyer të personalizuara, kthen minimumin bazë.
+    """
+    dyn_min_width = base_min_width
+    dyn_min_height = base_min_height
+
+    if wall_vertices:
+        max_x = max(v[0] for v in wall_vertices)
+        max_y = max(v[1] for v in wall_vertices)
+        dyn_min_width = max(dyn_min_width, int(max_x) + panel_width + margin)
+        dyn_min_height = max(dyn_min_height, int(max_y) + margin)
+
+    if custom_exits:
+        for (side, pos, width) in custom_exits:
+            half = width / 2
+            if side in ("top", "bottom"):
+                needed_width = int(pos + half) + panel_width + margin
+                dyn_min_width = max(dyn_min_width, needed_width)
+            else:  # "left" ose "right"
+                needed_height = int(pos + half) + margin
+                dyn_min_height = max(dyn_min_height, needed_height)
+
+    return dyn_min_width, dyn_min_height
+
+
 # Kur simulimi është aktiv dhe përdoruesi ndryshon placement mode
 # (p.sh. hap "Vendos Dyer" ndërkohë që simulimi po ndodh), duhet të
 # kapim gjendjen aktuale (dyer/pengesa) mbrapa te variablat "custom_*"
@@ -209,39 +306,139 @@ def sync_from_simulation_if_active(simulation, custom_exits, custom_obstacles,
         return None, False
     return simulation, None
 
+
+def build_ui(sim_width, panel_width):
+    """
+    Ndërton (ose RI-ndërton) tërë panelin e butonave, bazuar te
+    'sim_width' aktual - thirret njëherë në fillim dhe përsëri sa herë
+    dritarja ndryshon madhësi (VIDEORESIZE), kështu paneli ngjitet
+    gjithmonë saktë në cepin e djathtë të zonës së simulimit, pavarësisht
+    madhësisë së dritares/ekranit.
+
+    Layout-i vertikal (6 kategori, secila me titull mbi butonat e veta):
+    Gjerësia e Derës -> Densiteti -> Vendosja e Elementeve -> Menaxhimi
+    -> Simulimi -> Dhomë Poligon. Pozicionet 'y' të titujve mbahen si
+    konstante modul-nivel (TITLE_Y_*) që të përdoren edhe nga draw-loop-i
+    kryesor kur vizatohen vetë tekstet e titujve.
+
+    Kthen një dict me 'px' dhe të gjitha butonat/grupet.
+    """
+    px = sim_width + 20
+    bw, bh, gap = panel_width - 40, 28, 6
+
+    width_buttons = make_button_group(px, 30, bw, bh, gap,
+        [("E ngushtë (15px)", 15.0), ("Mesatare (30px)", 30.0), ("E gjerë (60px)", 60.0)])
+
+    density_buttons = make_button_group(px, 165, bw, bh, gap,
+        [("40 boid (ulët)", 40), ("80 boid (mesatar)", 80), ("150 boid (lartë)", 150)])
+
+    ui = {
+        "px": px,
+        "width_buttons": width_buttons,
+        "density_buttons": density_buttons,
+        # --- Kategoria "Vendosja e Elementeve" (titull te y=275) ---
+        "door_mode_btn": Button(px, 300, bw, 28, "Vendos Dyer (klikim)", "door"),
+        "obstacle_mode_btn": Button(px, 332, bw, 28, "Pengesë Drejtk. (zvarrit)", "obstacle"),
+        "circle_mode_btn": Button(px, 364, bw, 28, "Pengesë Rrethore (zvarrit)", "circle"),
+        # --- Kategoria "Menaxhimi" (titull te y=406) ---
+        "clear_doors_btn": Button(px, 431, bw, 22, "Pastro Dyert", "clear_doors"),
+        "clear_obstacles_btn": Button(px, 457, bw, 22, "Pastro Pengesat", "clear_obstacles"),
+        "delete_door_btn": Button(px, 483, bw, 22, "Fshij Derë (klikim)", "delete_door"),
+        "delete_obstacle_btn": Button(px, 509, bw, 22, "Fshij Pengesë (klikim)", "delete_obstacle"),
+        # --- Kategoria "Simulimi" (titull te y=545) ---
+        "start_button": Button(px, 570, bw, 32, "Fillo Simulimin", None),
+        "graph_button": Button(px, 606, bw, 32, "Shfaq Grafikun", None),
+        # --- Kategoria "Dhomë Poligon (Formë e Lirë)" (titull te y=652) ---
+        "wall_mode_btn": Button(px, 677, bw, 24, "Vizato Mur (klikim)", "wall"),
+        "wall_door_mode_btn": Button(px, 705, bw, 24, "Dyer në Mur (klikim)", "wall_door"),
+        "clear_walls_btn": Button(px, 733, bw, 20, "Pastro Murin e Personalizuar", "clear_walls"),
+    }
+    return ui
+
+
+# Pozicionet 'y' të titujve të kategorive - konstante, të përdorura nga
+# draw-loop-i kryesor (main()) kur vizatohen tekstet e titujve, në
+# përputhje me pozicionet e butonave të llogaritura sipër te build_ui().
+TITLE_Y_DOOR_WIDTH = 5
+TITLE_Y_DENSITY = 140
+TITLE_Y_PLACEMENT = 275
+TITLE_Y_MANAGEMENT = 406
+TITLE_Y_SIMULATION = 545
+TITLE_Y_POLYGON = 652
+
+
+
+
+def set_resize_locked(sdl_window, locked):
+    """
+    Bllokon/zhbllokon FIZIKISHT mundësinë e resize-it të dritares (heq
+    krejt aftësinë e zvarritjes së kufijve, dhe zakonisht edhe butonin
+    nativ ⬜ maksimizo/rikthe, sepse ai lidhet me 'resizable' te SDL2/OS).
+
+    SHËNIM HISTORIK: më parë kjo funksion u bë përkohësisht no-op, sepse
+    dyshohej se ndryshimi i 'resizable' TE NJË DRITARE E MAKSIMIZUAR
+    shkaktonte çmaksimizim të papritur. Hetimi i mëtejshëm tregoi se
+    shkaktari i VËRTETË ishte matplotlib (inicializimi i backend-it GUI
+    Tkinter, jo bllokimi fizik vetë) - tani i zgjidhur me
+    matplotlib.use("Agg") (shih krye të file-it). Prandaj bllokimi fizik
+    është i sigurt të rikthehet.
+
+    Nëse sdl_window s'ekziston (fallback rast pa modulin _sdl2), thjesht
+    s'bën asgjë - resize mbetet i mundur (best effort, jo gabim fatal).
+    """
+    if sdl_window is None:
+        return
+    try:
+        sdl_window.resizable = not locked
+    except Exception:
+        pass
+
+
+def sync_selection(ui, selected_width, selected_density):
+    """Rikthen gjendjen 'selected' të butonave pas një rindërtimi
+    (resize) - përndryshe do të humbisnin theksimin blu pas resize-it."""
+    for btn in ui["width_buttons"]:
+        btn.selected = (btn.value == selected_width)
+    for btn in ui["density_buttons"]:
+        btn.selected = (btn.value == selected_density)
+
+
 def main():
     global SIM_WIDTH, SIM_HEIGHT, WIDTH, HEIGHT
 
     pygame.init()
 
-    # Krijo fillimisht një dritare të vogël, të ripërmasueshme - do ta
-    # maksimizojmë menjëherë përmes Windows API, i cili e llogarit vetë
-    # saktë zonën e disponueshme (duke përjashtuar taskbar-in), pa
-    # nevojë për hamendje manuale të title bar-it/kufijve.
+    # --- Maksimizim REAL, cross-platform (Windows/macOS/Linux), PA asnjë
+    # API specifike OS-i (asnjë ctypes). pygame._sdl2.video.Window është
+    # pjesë ZYRTARE e vetë pygame (SDL2) dhe e menaxhon vetë saktë
+    # taskbar-in (Windows), menu bar-in/Dock-un (macOS) apo panelin
+    # (Linux) - pikërisht sjellja që kërkohej, por tani native. ---
     screen = pygame.display.set_mode((800, 600), pygame.RESIZABLE)
     pygame.display.set_caption("Boids Crowd Simulation")
 
+    # sdl_window mbahet si referencë edhe pas try-t (jo vetëm lokale te
+    # blloku i maksimizimit) - do të na duhet më vonë për të BLLOKUAR
+    # resize-in fizikisht (window.resizable = False) gjatë simulimit.
+    sdl_window = None
     try:
-        hwnd = pygame.display.get_wm_info()["window"]
-        SW_MAXIMIZE = 3
-        ctypes.windll.user32.ShowWindow(hwnd, SW_MAXIMIZE)
-
-        # Lexo madhësinë REALE të zonës së brendshme (client area) pas
-        # maksimizimit - kjo është saktësisht ajo çka mund ta shohim,
-        # pa llogaritur vetë title bar/border.
-        client_rect = ctypes.wintypes.RECT()
-        ctypes.windll.user32.GetClientRect(hwnd, ctypes.byref(client_rect))
-        actual_width = client_rect.right - client_rect.left
-        actual_height = client_rect.bottom - client_rect.top
-
-        WIDTH, HEIGHT = actual_width, actual_height
-        screen = pygame.display.set_mode((WIDTH, HEIGHT))
+        from pygame._sdl2.video import Window
+        sdl_window = Window.from_display_module()
+        sdl_window.maximize()
+        # I japim WM-it një moment të përpunojë maksimizimin, pastaj
+        # lexojmë madhësinë REALE që u caktua (respekton taskbar/dock).
+        pygame.time.delay(50)
+        pygame.event.pump()
+        WIDTH, HEIGHT = sdl_window.size
     except Exception:
-        # Fallback nëse s'jemi në Windows - përdor rezolucionin e ekranit.
+        # Fallback (shumë i rrallë - p.sh. pygame < 2.0 pa modulin _sdl2):
+        # përdor 90%/85% të rezolucionit të ekranit si default i madh.
         display_info = pygame.display.Info()
-        WIDTH = display_info.current_w
-        HEIGHT = display_info.current_h - 70
-        screen = pygame.display.set_mode((WIDTH, HEIGHT))
+        WIDTH = int(display_info.current_w * 0.9)
+        HEIGHT = int(display_info.current_h * 0.85)
+
+    WIDTH = max(WIDTH, MIN_WIDTH)
+    HEIGHT = max(HEIGHT, MIN_HEIGHT)
+    screen = pygame.display.set_mode((WIDTH, HEIGHT), pygame.RESIZABLE)
 
     SIM_WIDTH = WIDTH - PANEL_WIDTH
     SIM_HEIGHT = HEIGHT
@@ -270,32 +467,43 @@ def main():
     placement_mode = None
     dragging_from = None  # pika e fillimit të drag-ut për pengesë.
 
-    px = SIM_WIDTH + 20
-    bw, bh, gap = PANEL_WIDTH - 40, 28, 6
+    # --- Paneli i UI-t (butonat) - ndërtohet nga build_ui(), jo hard-coded
+    # këtu, që të mund të rindërtohet identikisht sa herë ndryshon madhësia
+    # e dritares (shih trajtimin e VIDEORESIZE në event loop poshtë). ---
+    ui = build_ui(SIM_WIDTH, PANEL_WIDTH)
+    sync_selection(ui, selected_width, selected_density)
 
-    width_buttons = make_button_group(px, 30, bw, bh, gap,
-        [("E ngushtë (15px)", 15.0), ("Mesatare (30px)", 30.0), ("E gjerë (60px)", 60.0)])
-    width_buttons[0].selected = True
-
-    density_buttons = make_button_group(px, 165, bw, bh, gap,
-        [("40 boid (ulët)", 40), ("80 boid (mesatar)", 80), ("150 boid (lartë)", 150)])
-    density_buttons[1].selected = True
-
-    door_mode_btn = Button(px, 270, bw, 28, "🚪 Vendos Dyer (klikim)", "door")
-    obstacle_mode_btn = Button(px, 302, bw, 28, "▦ Pengesë Drejtk. (zvarrit)", "obstacle")
-    circle_mode_btn = Button(px, 334, bw, 28, "● Pengesë Rrethore (zvarrit)", "circle")
-    clear_doors_btn = Button(px, 366, bw, 22, "Pastro Dyert", "clear_doors")
-    clear_obstacles_btn = Button(px, 392, bw, 22, "Pastro Pengesat", "clear_obstacles")
-    delete_door_btn = Button(px, 418, bw, 22, "Fshij Derë (klikim)", "delete_door")
-    delete_obstacle_btn = Button(px, 444, bw, 22, "Fshij Pengesë (klikim)", "delete_obstacle")
-    start_button = Button(px, 474, bw, 32, "▶  Fillo Simulimin", None)
-    graph_button = Button(px, 510, bw, 32, "📊  Shfaq Grafikun", None)
-
-    wall_mode_btn = Button(px, 550, bw, 24, "✏️ Vizato Mur (klikim)", "wall")
-    wall_door_mode_btn = Button(px, 578, bw, 24, "🚪 Dyer në Mur (klikim)", "wall_door")
-    clear_walls_btn = Button(px, 606, bw, 20, "Pastro Murin e Personalizuar", "clear_walls")
+    px = ui["px"]
+    width_buttons = ui["width_buttons"]
+    density_buttons = ui["density_buttons"]
+    door_mode_btn = ui["door_mode_btn"]
+    obstacle_mode_btn = ui["obstacle_mode_btn"]
+    circle_mode_btn = ui["circle_mode_btn"]
+    clear_doors_btn = ui["clear_doors_btn"]
+    clear_obstacles_btn = ui["clear_obstacles_btn"]
+    delete_door_btn = ui["delete_door_btn"]
+    delete_obstacle_btn = ui["delete_obstacle_btn"]
+    start_button = ui["start_button"]
+    graph_button = ui["graph_button"]
+    wall_mode_btn = ui["wall_mode_btn"]
+    wall_door_mode_btn = ui["wall_door_mode_btn"]
+    clear_walls_btn = ui["clear_walls_btn"]
 
     selection_groups = [width_buttons, density_buttons]
+
+    # --- Gjurmojmë madhësinë e fundit "normale" (jo-minimizuar) dhe
+    # gjendjen aktuale minimized/jo - që kur dritarja rikthehet nga
+    # minimizimi (ose ndryshim fokusi që OS-i e trajton njësoj, p.sh.
+    # kur hapet Windows Photos për grafikun), ta RIVENDOSIM me forcë te
+    # kjo madhësi, në vend që t'i besojmë çfarëdo vlere (shpesh e
+    # gabuar/kalimtare) që OS-i/SDL raporton gjatë vetë tranzicionit. ---
+    last_normal_size = (WIDTH, HEIGHT)
+    is_minimized = False
+    # Flamur shtesë (jo vetëm sdl_window.resizable) - siguri e dyfishtë:
+    # nëse OS-i prapëseprapë dërgon VIDEORESIZE ndërsa jemi "të ngrirë"
+    # (simulim aktiv OSE grafiku sapo u hap), e injorojmë EDHE në kodin
+    # tonë, jo vetëm duke u mbështetur te resizable=False i OS-it.
+    resize_frozen = False
 
     simulation = None
     running_sim = False
@@ -309,6 +517,108 @@ def main():
         for event in pygame.event.get():
             if event.type == pygame.QUIT:
                 running = False
+
+            # --- Minimizim/rikthim (dhe tranzicione të ngjashme fokusi,
+            # p.sh. kur hapet Windows Photos për grafikun): ndarë
+            # QËLLIMISHT nga VIDEORESIZE i zakonshëm, sepse gjatë këtyre
+            # OS-i/SDL shpesh dërgon VIDEORESIZE me vlera kalimtare/të
+            # gabuara (zhurmë), jo resize real të bërë nga përdoruesi. ---
+            if event.type == pygame.WINDOWMINIMIZED:
+                is_minimized = True
+
+            # Zhbllokon resize-in kur app-i rimerr fokusin (p.sh.
+            # përdoruesi ka klikuar prapë te dritarja e app-it pasi ka
+            # parë grafikun në Windows Photos) - VETËM nëse s'po vrapon
+            # simulim (ai bllokim ka prioritet, hiqet vetëm kur mbaron
+            # simulimi vetë, jo këtu).
+            if event.type == pygame.WINDOWFOCUSGAINED:
+                if not running_sim:
+                    set_resize_locked(sdl_window, False)
+                    resize_frozen = False
+
+            if event.type == pygame.WINDOWRESTORED:
+                is_minimized = False
+                # Rivendos me FORCË madhësinë e fundit "normale" - jo
+                # çfarëdo që OS-i mendon se duhet të jetë tani. Klampojmë
+                # gjithsesi te minimumi dinamik (rast edge: poligon/derë
+                # u shtua PASI last_normal_size ishte regjistruar).
+                dyn_min_width, dyn_min_height = compute_dynamic_min(
+                    wall_vertices, custom_exits, PANEL_WIDTH, MIN_WIDTH, MIN_HEIGHT)
+                WIDTH = max(last_normal_size[0], dyn_min_width)
+                HEIGHT = max(last_normal_size[1], dyn_min_height)
+                screen = pygame.display.set_mode((WIDTH, HEIGHT), pygame.RESIZABLE)
+                last_normal_size = (WIDTH, HEIGHT)
+
+                SIM_WIDTH = WIDTH - PANEL_WIDTH
+                SIM_HEIGHT = HEIGHT
+
+                ui = build_ui(SIM_WIDTH, PANEL_WIDTH)
+                sync_selection(ui, selected_width, selected_density)
+
+                px = ui["px"]
+                width_buttons = ui["width_buttons"]
+                density_buttons = ui["density_buttons"]
+                door_mode_btn = ui["door_mode_btn"]
+                obstacle_mode_btn = ui["obstacle_mode_btn"]
+                circle_mode_btn = ui["circle_mode_btn"]
+                clear_doors_btn = ui["clear_doors_btn"]
+                clear_obstacles_btn = ui["clear_obstacles_btn"]
+                delete_door_btn = ui["delete_door_btn"]
+                delete_obstacle_btn = ui["delete_obstacle_btn"]
+                start_button = ui["start_button"]
+                graph_button = ui["graph_button"]
+                wall_mode_btn = ui["wall_mode_btn"]
+                wall_door_mode_btn = ui["wall_door_mode_btn"]
+                clear_walls_btn = ui["clear_walls_btn"]
+
+                selection_groups = [width_buttons, density_buttons]
+
+            # --- RESPONSIVE: dritarja u ndryshua madhësi (resize manual
+            # nga përdoruesi, ose maksimizim nga OS-i - njësoj në Windows/
+            # macOS/Linux, pa asnjë API specifike platforme). Rillogarisim
+            # SIM_WIDTH/HEIGHT dhe RINDËRTOJMË tërë panelin e butonave në
+            # pozicionet e reja, ruajtur gjendjen e zgjedhur (selected).
+            # Nëse ka poligon të vizatuar OSE dyer të vendosura larg
+            # cepit (top/bottom pranë skajit të djathtë, left/right pranë
+            # fundit), minimumi i lejuar RRITET dinamikisht që paneli të
+            # mos i mbulojë/humbasë kurrë. E INJOROJMË plotësisht ndërsa
+            # dritarja është minimizuar - shih WINDOWMINIMIZED/RESTORED
+            # më sipër. ---
+            if event.type == pygame.VIDEORESIZE:
+                if is_minimized or resize_frozen:
+                    continue
+
+                dyn_min_width, dyn_min_height = compute_dynamic_min(
+                    wall_vertices, custom_exits, PANEL_WIDTH, MIN_WIDTH, MIN_HEIGHT)
+
+                WIDTH = max(event.w, dyn_min_width)
+                HEIGHT = max(event.h, dyn_min_height)
+                screen = pygame.display.set_mode((WIDTH, HEIGHT), pygame.RESIZABLE)
+                last_normal_size = (WIDTH, HEIGHT)
+
+                SIM_WIDTH = WIDTH - PANEL_WIDTH
+                SIM_HEIGHT = HEIGHT
+
+                ui = build_ui(SIM_WIDTH, PANEL_WIDTH)
+                sync_selection(ui, selected_width, selected_density)
+
+                px = ui["px"]
+                width_buttons = ui["width_buttons"]
+                density_buttons = ui["density_buttons"]
+                door_mode_btn = ui["door_mode_btn"]
+                obstacle_mode_btn = ui["obstacle_mode_btn"]
+                circle_mode_btn = ui["circle_mode_btn"]
+                clear_doors_btn = ui["clear_doors_btn"]
+                clear_obstacles_btn = ui["clear_obstacles_btn"]
+                delete_door_btn = ui["delete_door_btn"]
+                delete_obstacle_btn = ui["delete_obstacle_btn"]
+                start_button = ui["start_button"]
+                graph_button = ui["graph_button"]
+                wall_mode_btn = ui["wall_mode_btn"]
+                wall_door_mode_btn = ui["wall_door_mode_btn"]
+                clear_walls_btn = ui["clear_walls_btn"]
+
+                selection_groups = [width_buttons, density_buttons]
 
             if event.type == pygame.MOUSEBUTTONDOWN:
                 # Klikime brenda zonës së simulimit (placement).
@@ -440,7 +750,12 @@ def main():
 
                     # Fillon simulimin - degëzohet sipas asaj nëse përdoruesi ka
                     # ndërtuar mur të personalizuar (PolygonSimulation) apo përdor
-                    # dhomën standarde me 4 mure (Simulation).
+                    # dhomën standarde me 4 mure (Simulation). BLLOKOJMË resize-in
+                    # fizikisht sapo fillon - SIM_WIDTH/HEIGHT janë "të ngrira" te
+                    # motori i simulimit (PolygonRoom/Environment, flow field) që
+                    # nga momenti i krijimit; nëse dritarja ndryshohet gjatë
+                    # ekzekutimit, do të krijohej mospërputhje mes koordinatave të
+                    # simulimit dhe zonës reale të vizatimit.
                     if use_custom_room and room_closed and len(wall_doors) > 0:
                         if start_button.is_clicked(mouse_pos):
                             simulation = PolygonSimulation(
@@ -450,6 +765,8 @@ def main():
                                 exit_width=selected_width)
                             running_sim = True
                             stats_printed = False
+                            set_resize_locked(sdl_window, True)
+                            resize_frozen = True
                     elif start_button.is_clicked(mouse_pos) and len(custom_exits) > 0:
                         simulation = Simulation(selected_density, SIM_WIDTH, SIM_HEIGHT,
                                                 custom_exits, obstacles=custom_obstacles,
@@ -457,12 +774,31 @@ def main():
                                                 circle_obstacles=custom_circle_obstacles)
                         running_sim = True
                         stats_printed = False
+                        set_resize_locked(sdl_window, True)
+                        resize_frozen = True
 
                     if graph_button.is_clicked(mouse_pos) and simulation is not None \
                             and simulation.is_finished():
                         histogram_path = os.path.join(RESULTS_DIR, "evacuation_histogram.png")
+                        # show=False - NUK thërret plt.show() (bllokues,
+                        # hap event loop të vet GUI-je Tkinter). Dy event
+                        # loop GUI brenda TË NJËJTIT proces (Tkinter i
+                        # matplotlib + SDL i pygame) ishin shkaku i
+                        # dritares së prishur/bosh që shfaqej më parë.
                         plot_evacuation_histogram(simulation.evacuation_times,
-                                                   save_path=histogram_path)
+                                                   save_path=histogram_path, show=False)
+                        # Bllokojmë resize-in TANI (jo vetëm gjatë
+                        # simulimit) - hapja e vizualizuesit të OS-it
+                        # (Windows Photos etj.) merr fokusin, dhe kjo
+                        # mund t'i shkaktojë Windows-it të rillogarisë
+                        # "zonën e punës" të dritares sonë të maksimizuar
+                        # dhe ta ndryshojë madhësinë vetë (VIDEORESIZE
+                        # "legjitim" nga këndvështrimi i OS-it, por i
+                        # padëshiruar). Zhbllokohet te WINDOWFOCUSGAINED
+                        # më poshtë, kur përdoruesi klikon prapë te app-i.
+                        set_resize_locked(sdl_window, True)
+                        resize_frozen = True
+                        open_file_externally(histogram_path)
                     if wall_mode_btn.is_clicked(mouse_pos):
                         placement_mode = None if placement_mode == "wall" else "wall"
                     if wall_door_mode_btn.is_clicked(mouse_pos):
@@ -479,6 +815,8 @@ def main():
                         if simulation is not None and isinstance(simulation, PolygonSimulation):
                             simulation = None
                             running_sim = False
+                            set_resize_locked(sdl_window, False)
+                            resize_frozen = False
 
             if event.type == pygame.KEYDOWN:
                 if placement_mode == "obstacle" and len(custom_obstacles) > 0:
@@ -521,6 +859,8 @@ def main():
                 step_time = time.perf_counter() - step_start
             else:
                 running_sim = False
+                set_resize_locked(sdl_window, False)  # zhblloko resize-in
+                resize_frozen = False
                 if not stats_printed:
                     print_summary(simulation.evacuation_times)
                     stats_printed = True
@@ -605,37 +945,43 @@ def main():
 
         pygame.draw.rect(screen, PANEL_COLOR, (SIM_WIDTH, 0, PANEL_WIDTH, HEIGHT))
 
-        screen.blit(title_font.render("Gjerësia e Derës", True, TEXT_COLOR), (px, 5))
+        screen.blit(title_font.render("Gjerësia e Derës", True, TEXT_COLOR), (px, TITLE_Y_DOOR_WIDTH))
         for btn in width_buttons:
             btn.draw(screen, font, mouse_pos)
 
-        screen.blit(title_font.render("Densiteti (Boid-e)", True, TEXT_COLOR), (px, 140))
+        screen.blit(title_font.render("Densiteti (Boid-e)", True, TEXT_COLOR), (px, TITLE_Y_DENSITY))
         for btn in density_buttons:
             btn.draw(screen, font, mouse_pos)
 
+        screen.blit(title_font.render("Vendosja e Elementeve", True, TEXT_COLOR), (px, TITLE_Y_PLACEMENT))
         door_mode_btn.draw(screen, small_font, mouse_pos,
                            MODE_ACTIVE_COLOR if placement_mode == "door" else None)
         obstacle_mode_btn.draw(screen, small_font, mouse_pos,
                                MODE_ACTIVE_COLOR if placement_mode == "obstacle" else None)
         circle_mode_btn.draw(screen, small_font, mouse_pos,
                              MODE_ACTIVE_COLOR if placement_mode == "circle" else None)
+
+        screen.blit(title_font.render("Menaxhimi", True, TEXT_COLOR), (px, TITLE_Y_MANAGEMENT))
         clear_doors_btn.draw(screen, small_font, mouse_pos)
         clear_obstacles_btn.draw(screen, small_font, mouse_pos)
         delete_door_btn.draw(screen, small_font, mouse_pos,
                              MODE_ACTIVE_COLOR if placement_mode == "delete_door" else None)
         delete_obstacle_btn.draw(screen, small_font, mouse_pos,
                                  MODE_ACTIVE_COLOR if placement_mode == "delete_obstacle" else None)
+
+        screen.blit(title_font.render("Simulimi", True, TEXT_COLOR), (px, TITLE_Y_SIMULATION))
+        start_button.draw(screen, font, mouse_pos)
+        if simulation is not None and simulation.is_finished():
+            graph_button.draw(screen, font, mouse_pos)
+
+        screen.blit(title_font.render("Dhomë Poligon (Formë e Lirë)", True, TEXT_COLOR), (px, TITLE_Y_POLYGON))
         wall_mode_btn.draw(screen, small_font, mouse_pos,
                            MODE_ACTIVE_COLOR if placement_mode == "wall" else None)
         wall_door_mode_btn.draw(screen, small_font, mouse_pos,
                                 MODE_ACTIVE_COLOR if placement_mode == "wall_door" else None)
         clear_walls_btn.draw(screen, small_font, mouse_pos)
 
-        start_button.draw(screen, font, mouse_pos)
-        if simulation is not None and simulation.is_finished():
-            graph_button.draw(screen, font, mouse_pos)
-
-        info_y = 636
+        info_y = 773
         if use_custom_room and room_closed:
             door_count = len(wall_doors)
         else:
@@ -658,7 +1004,7 @@ def main():
             status_text = f"Aktivë: {remaining}   Koha: {simulation.time_elapsed}"
             screen.blit(font.render(status_text, True, TEXT_COLOR), (px, info_y + 80))
             if simulation.is_finished():
-                screen.blit(font.render("✓ Evakuimi përfundoi!", True, EXIT_COLOR), (px, info_y + 58))
+                screen.blit(font.render("Evakuimi përfundoi!", True, EXIT_COLOR), (px, info_y + 58))
 
         draw_time = time.perf_counter() - draw_start
         if DEBUG_PERF and simulation is not None:
