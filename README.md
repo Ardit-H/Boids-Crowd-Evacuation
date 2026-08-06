@@ -50,8 +50,9 @@ Aplikacioni simulon lëvizjen e një turme (agjentë/"boids") drejt daljeve të 
 - 🧱 **Pengesa drejtkëndëshe (me rrotullim të lirë në kënd)** dhe **pengesa rrethore**, të vendosura me "drag" të mausit.
 - 🔄 **Rrotullim pengese në kohë reale**: `Q`/`E` rrotullon pengesën e fundit të vendosur me 5° në çdo shtypje.
 - 🗑️ Fshirje individuale e dyerve/pengesave specifike (jo vetëm "pastro të gjitha").
-- ⚙️ Kontroll i densitetit (40/80/150 boid) dhe gjerësisë së derës (15/30/60px) nga paneli.
-- 📊 Histogram i shpërndarjes së kohës së evakuimit, i ruajtur automatikisht si `.png`.
+- ⚙️ Kontroll i densitetit (40/80/150 boid) dhe gjerësisë së derës (15/30/60px) nga paneli, i strukturuar në kategori të qarta (Gjerësia e Derës, Densiteti, Vendosja e Elementeve, Menaxhimi, Simulimi, Dhomë Poligon).
+- 🖥️ **Dritare responsive dhe cross-platform** (Windows/macOS/Linux): hapet automatikisht e madhe (jo e detyruar në "maximize" nativ), mund të ndryshohet lirisht madhësia, paneli/butonat rindërtohen vetë sipas madhësisë së re. Dritarja s'lejon të zvogëlohet nën atë çka i duhet poligonit/dyerve të vendosura (mbrojtje automatike), dhe **bllokohet fizikisht gjatë vetë simulimit** (parandalon mospërputhje mes koordinatave të motorit dhe zonës së vizatimit).
+- 📊 Histogram i shpërndarjes së kohës së evakuimit, i ruajtur automatikisht si `.png` dhe i hapur në vizualizuesin e imazheve DEFAULT të sistemit (jashtë vetë app-it — proces krejt i veçantë, që s'ndërhyn me dritaren e simulimit).
 - 🧪 **Batch testing** headless (pa vizualizim): skripta të gatshme për të xhiruar dhjetëra konfigurime × shumë "trials" dhe për të nxjerrë statistika (mean, median, std) të krahasueshme mes tyre.
 
 ## Instalimi
@@ -83,26 +84,28 @@ matplotlib
 python -m visualization.renderer
 ```
 
-Dritarja hapet e maksimizuar (Windows).
+Dritarja hapet automatikisht e madhe (~95%/90% e ekranit), tekst i mprehtë (DPI-aware) — funksionon njësoj në Windows, macOS dhe Linux. Mund ta ndryshosh lirisht madhësinë duke zvarritur kufirin, ose ta maksimizosh me butonin nativ të OS-it — paneli përshtatet automatikisht.
 
-> **Shënim i rëndësishëm — dera e paracaktuar**: kur hapet aplikacioni, ekziston automatikisht **1 derë e paracaktuar (default) në mes të murit të sipërm**. Nëse nuk të nevojitet aty (p.sh. do të vendosësh dyer vetë në pozicione/mure të tjera), thjesht aktivizo modalitetin "Fshij Derë" dhe kliko mbi të për ta hequr — pastaj vendos dyer të reja ku të duash (çdonjëra prej 4 mureve) përmes "🚪 Vendos Dyer".
+> **Shënim i rëndësishëm — dera e paracaktuar**: kur hapet aplikacioni, ekziston automatikisht **1 derë e paracaktuar (default) në mes të murit të sipërm**. Nëse nuk të nevojitet aty (p.sh. do të vendosësh dyer vetë në pozicione/mure të tjera), thjesht aktivizo modalitetin "Fshij Derë" dhe kliko mbi të për ta hequr — pastaj vendos dyer të reja ku të duash (çdonjëra prej 4 mureve) përmes "Vendos Dyer".
 
-Nga paneli anësor mund të:
+> **Shënim — resize gjatë simulimit**: sa kohë një simulim është aktiv, madhësia e dritares bllokohet fizikisht (s'mund të zvarritet as të maksimizohet) — kjo parandalon mospërputhje mes koordinatave të motorit të simulimit dhe zonës reale të vizatimit. Zhbllokohet automatikisht sapo simulimi mbaron.
+
+Nga paneli anësor, i ndarë në 6 kategori, mund të:
 
 | Butoni | Veprimi |
 |---|---|
 | Gjerësia e Derës | 15px / 30px / 60px |
 | Densiteti (Boid-e) | 40 / 80 / 150 |
-| 🚪 Vendos Dyer | Klikim pranë një muri (dhomë 4-mure) → shton derë atje |
-| ▦ Pengesë Drejtkëndëshe | Zvarritje (drag) → krijon pengesë; `Q`/`E` e rrotullon të fundit |
+| Vendos Dyer | Klikim pranë një muri (dhomë 4-mure) → shton derë atje |
+| Pengesë Drejtkëndëshe | Zvarritje (drag) → krijon pengesë; `Q`/`E` e rrotullon të fundit |
 | ● Pengesë Rrethore | Zvarritje → krijon pengesë rrethore |
 | Fshij Derë / Fshij Pengesë | Klikim mbi elementin që do fshihet |
 | Pastro Dyert / Pastro Pengesat | Fshin të gjitha njëherësh |
-| ✏️ Vizato Mur | Klikime të njëpasnjëshme → ndërton poligon; klikim pranë kulmit të parë e mbyll formën |
-| 🚪 Dyer në Mur | Vendos derë mbi segmentin më të afërt të murit të vizatuar |
+| Vizato Mur | Klikime të njëpasnjëshme → ndërton poligon; klikim pranë kulmit të parë e mbyll formën |
+| Dyer në Mur | Vendos derë mbi segmentin më të afërt të murit të vizatuar |
 | Pastro Murin e Personalizuar | Fshin poligonin dhe kthehet te dhoma standarde |
-| ▶ Fillo Simulimin | Nis simulimin me konfigurimin aktual |
-| 📊 Shfaq Grafikun | Shfaq/ruan histogramin e kohëve të evakuimit (pas përfundimit) |
+| Fillo Simulimin | Nis simulimin me konfigurimin aktual (bllokon resize-in derisa të mbarojë) |
+| Shfaq Grafikun | Ruan histogramin si `.png` dhe e hap në vizualizuesin default të imazheve të OS-it |
 
 ### Batch testing (headless, pa GUI)
 
@@ -129,7 +132,7 @@ Boids-Crowd-Evacuation/
 │   ├── polygon_simulation.py     # Njësoj si simulation.py, por për PolygonRoom
 │   └── spatial_grid.py           # Grid hapësinor për kërkim O(n) të fqinjëve
 ├── visualization/
-│   └── renderer.py               # GUI kryesor (pygame): panel kontrolli, vizatim, ndërveprim
+│   └── renderer.py               # GUI kryesor (pygame): panel kontrolli, vizatim, ndërveprim, resize responsive
 ├── analysis/
 │   └── metrics.py                # Statistika evakuimi, histograme, grafikë krahasues
 ├── experiments/                  # Batch testing headless
@@ -159,6 +162,8 @@ Boids-Crowd-Evacuation/
 
 **Pengesat e rrotulluara** përdorin një strategji paralele: për `angle == 0.0` ekzekutohet saktësisht kodi origjinal (boshtor), ndërsa për kënd ≠ 0 e njëjta logjikë zbatohet në hapësirën lokale të pengesës (transformim rrotullimi), duke garantuar sjellje identike të verifikuar statistikisht mes të dy rasteve.
 
+**Dritarja/UI-ja** (`visualization/renderer.py`) përdor `pygame.RESIZABLE` me trajtim të plotë të ngjarjeve `VIDEORESIZE`/`WINDOWMINIMIZED`/`WINDOWRESTORED`/`WINDOWFOCUSGAINED`, minimum dinamik të llogaritur sipas poligonit/dyerve aktuale, dhe DPI-awareness native (Windows). Grafiku (`analysis/metrics.py`, backend `matplotlib.Agg`) hapet gjithmonë si proces i jashtëm i OS-it, jo brenda vetë event loop-it të `pygame`-s — kjo shmang konfliktet mes event loop-eve GUI të ndryshme brenda të njëjtit proces.
+
 ## Eksperimentet dhe testimi statistikor
 
 Projekti përfshin një sërë eksperimentesh të kontrolluara statistikisht (30-80 trials/konfigurim), përfshirë:
@@ -175,7 +180,7 @@ Rezultatet e plota (CSV + interpretim statistikor) ndodhen te `results/` dhe jan
 - **pygame** — motor vizualizimi/GUI dhe input
 - **numpy** — llogaritje vektoriale (pozicione, forca)
 - **pandas** — organizim dhe agregim i rezultateve të batch testing
-- **matplotlib** — grafikë (histograme, krahasime konfigurimesh)
+- **matplotlib** — grafikë (histograme, krahasime konfigurimesh), backend `Agg` brenda GUI-t
 
 ## Kontekst akademik
 
