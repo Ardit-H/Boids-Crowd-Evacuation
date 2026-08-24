@@ -145,10 +145,10 @@ class PolygonRoom:
             norm_len = np.linalg.norm(normal)
             if norm_len > 0:
                 normal = normal / norm_len
-                center = np.array([(self.min_x + self.max_x) / 2,
-                                    (self.min_y + self.max_y) / 2])
-                if np.dot(normal, center - np.array(closest_point)) < 0:
-                    normal = -normal
+                direction = np.array(boid.position) - np.array(closest_point)
+                norm = np.linalg.norm(direction)
+                if norm > 1e-6:
+                    normal = direction / norm
                 boid.position = np.array(closest_point) + normal * 2
                 inward_speed = np.dot(boid.velocity, normal)
                 if inward_speed < 0:
